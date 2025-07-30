@@ -29,8 +29,6 @@ const routes = [
 ]
 
 export default createRouter({
-  history: createWebHistory(
-        import.meta.env.PROD ? '/download-center/' : '/'
-  ),  // 设置base路径
+  history: createWebHistory('/'),  // 设置base路径
   routes
 })

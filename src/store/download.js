@@ -13,7 +13,7 @@ export const useDownloadStore = defineStore('download', {
     total: 0 // Added for pagination
   }),
   actions: {
-    async fetchTasks({ page = 1, pageSize = 6 } = {}) {
+    async fetchTasks({ page = 1, pageSize = 10 } = {}) {
       this.loading = true
       try {
         // 这里必须传 page 和 size，不能传 skip 和 limit！

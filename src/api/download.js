@@ -2,8 +2,8 @@ import axios from 'axios'
 import { z } from 'zod';
 
 const request = axios.create({
-  baseURL: '/api/v1',
-  timeout: 10000
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  timeout: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 10000
 })
 
 // 下载任务相关

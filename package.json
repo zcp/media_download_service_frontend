@@ -17,6 +17,7 @@
     "element-plus": "^2.9.10",
     "papaparse": "^5.5.3",
     "pinia": "^3.0.3",
+    "uuid": "^11.1.0",
     "vue-router": "^4.5.0",
     "zod": "^4.0.2"
   },

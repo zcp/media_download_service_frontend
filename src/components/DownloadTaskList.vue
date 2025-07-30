@@ -24,7 +24,7 @@
         v-loading="store.loading"
         border
         stripe
-        style="width: 100%; max-height: 520px;"
+        :height="tableHeight"
         :empty-text="store.loading ? '加载中...' : (fetchError ? '加载失败，请刷新重试' : '暂无下载任务，快去创建吧！')"
         @row-click="(row) => goDetail(row.id)"
       >
@@ -130,7 +130,7 @@
 
 <script setup>
 import { useDownloadStore } from '@/store/download'
-import { onMounted, watch, ref, onUnmounted , computed } from 'vue'
+import { onMounted, watch, ref, onUnmounted , computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatTime } from '@/utils/time'
 import Papa from 'papaparse'
@@ -146,6 +146,35 @@ const currentPage = ref(1);
 const pageSize = 10;
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)));
 const jumpPage = ref(currentPage.value);
+
+// 动态表格高度
+const tableHeight = ref(400);
+
+// 计算表格高度的函数
+const calculateTableHeight = () => {
+  nextTick(() => {
+    // 获取视口高度
+    const viewportHeight = window.innerHeight;
+    
+    // 预留空间：
+    // - 顶部导航栏: ~60px
+    // - 页面标题卡片: ~80px  
+    // - 分页组件: ~60px
+    // - 页面边距: ~40px
+    // - 其他缓冲: ~40px
+    const reservedHeight = 280;
+    
+    // 计算可用高度，最小400px，最大800px
+    const availableHeight = Math.max(400, Math.min(800, viewportHeight - reservedHeight));
+    
+    tableHeight.value = availableHeight;
+  });
+};
+
+// 窗口大小变化监听
+const handleResize = () => {
+  calculateTableHeight();
+};
 
 watch(currentPage, (val) => {
   jumpPage.value = val;
@@ -222,6 +251,12 @@ onMounted(() => {
     }
   }
   fetchTasks();
+  
+  // 初始化表格高度
+  calculateTableHeight();
+  
+  // 添加窗口大小变化监听
+  window.addEventListener('resize', handleResize);
 });
 
 watch(currentPage, () => {
@@ -229,7 +264,10 @@ watch(currentPage, () => {
 })
 
 onUnmounted(() => {
-  if (fetchController.value) fetchController.value.abort()
+  if (fetchController.value) fetchController.value.abort();
+  
+  // 移除窗口大小变化监听
+  window.removeEventListener('resize', handleResize);
 })
 
 const goCreate = () => router.push('/download-center/tasks/create')
@@ -274,7 +312,7 @@ const cancel = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     });
-    
+
     deletingIds.value.add(id)
     try {
       await store.deleteDownloadTask(id)
@@ -336,7 +374,7 @@ const handleFileChange = (e) => {
   // 1. 优先校验 MIME 类型
   const allowedMimeTypes = ['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel'];
   const fileExtension = file.name.split('.').pop()?.toLowerCase() ?? '';
-  
+
   const isMimeAllowed = allowedMimeTypes.includes(file.type);
   const isExtensionAllowed = fileExtension === 'csv';
 
@@ -354,7 +392,7 @@ const handleFileChange = (e) => {
     e.target.value = '' // 重置文件输入
     return;
   }
-  
+
   // 校验大小
   if (file.size > 5 * 1024 * 1024) {
     ElMessage.error('文件大小不能超过 5MB')
@@ -382,7 +420,7 @@ const handleFileChange = (e) => {
       // 过滤掉 '播放url' 为空的行，并对有效数据进行初步处理
       const validData = results.data
         .map(row => ({...row, '标题': sanitizeForCsv(row['标题'])})) // 清理标题
-        .filter(row => row['播放url']) 
+        .filter(row => row['播放url'])
 
       if (validData.length === 0) {
         ElMessage.warning('文件中没有找到有效的任务数据')
@@ -404,7 +442,7 @@ const importTasks = async () => {
 
   for (const [index, row] of importData.value.entries()) {
     const resource_url = row['播放url']
-    
+
     // 1. 验证URL
     const urlValidation = validateUrl(resource_url)
     if (!urlValidation.isValid) {
@@ -489,8 +527,34 @@ const importTasks = async () => {
   background: #fff;
 }
 
+/* 表格滚动优化 */
 .el-table {
   border-radius: 10px 10px 0 0;
+}
+
+.el-table .el-table__body-wrapper {
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.el-table .el-table__body-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.el-table .el-table__body-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.el-table .el-table__body-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.el-table .el-table__body-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .custom-pagination {

@@ -20,7 +20,7 @@
           <el-input v-model="form.liveroom_id" placeholder="输入后将自动生成视频ID" clearable/>
         </el-form-item>
         <el-form-item label="视频ID" prop="video_id">
-          <el-input v-model="form.video_id" placeholder="由直播间ID自动生成" readonly />
+          <el-input v-model="form.video_id" placeholder="系统自动生成的唯一标识" readonly />
         </el-form-item>
         <el-form-item label="直播间标题" prop="liveroom_title">
           <el-input v-model="form.liveroom_title" placeholder="（选填）任务的别名" clearable/>
@@ -45,13 +45,15 @@ import { ElMessage } from 'element-plus'
 import { validateUrl, generateVideoId, sanitizeForCsv } from '@/utils/security'
 import { isValidVideoId } from '@/utils/validate'
 
+import { v4 as uuidv4 } from 'uuid'
+
 const router = useRouter()
 const store = useDownloadStore()
 const formRef = ref()
 const form = ref({
   resource_url: '',
   resource_type: '',
-  video_id: '',
+  video_id: uuidv4(), // 直接在初始化时生成UUID
   liveroom_id: '',
   liveroom_title: '',
   liveroom_url: ''
@@ -69,16 +71,7 @@ watch(() => form.value.resource_url, (newUrl) => {
 });
 
 
-// 监听 liveroom_id 变化，自动生成 video_id
-watch(() => form.value.liveroom_id, (newVal) => {
-  // 允许用户输入8-10位的ID，生成时总是基于补全的10位ID
-  if (newVal && /^\d{8,10}$/.test(newVal)) {
-    const paddedLiveroomId = String(newVal).padStart(10, '0')
-    form.value.video_id = generateVideoId(paddedLiveroomId);
-  } else {
-    form.value.video_id = ''
-  }
-})
+
 
 // 自定义安全URL验证器
 const secureUrlValidator = (rule, value, callback) => {
@@ -96,10 +89,6 @@ const rules = {
     { validator: secureUrlValidator, trigger: 'blur' }
   ],
   resource_type: [{ required: true, message: '请选择一个资源类型', trigger: 'change' }],
-  video_id: [
-    { required: true, message: '视频ID是必填项，由直播间ID自动生成', trigger: 'blur' },
-    { validator: (rule, value, callback) => isValidVideoId(value) ? callback() : callback('视频ID格式不正确，请检查直播间ID'), trigger: 'blur' }
-  ],
   liveroom_id: [
     { required: true, message: '直播间ID是必填项', trigger: 'blur' },
     { pattern: /^\d{8,10}$/, message: '直播间ID必须为8-10位数字', trigger: 'blur' }
@@ -116,6 +105,11 @@ const onSubmit = async () => {
     // 2. 如果验证通过，准备并发送数据
     const payload = { ...form.value }
 
+        // 确保有 UUID（虽然理论上肯定有，但作为保险）
+    if (!payload.video_id) {
+      payload.video_id = uuidv4()
+    }
+
     // 对标题进行CSV注入清理
     if (payload.liveroom_title) {
       payload.liveroom_title = sanitizeForCsv(payload.liveroom_title)
@@ -128,7 +122,7 @@ const onSubmit = async () => {
         delete payload.liveroom_url
     }
     payload.liveroom_id = String(payload.liveroom_id).padStart(10, '0')
-    
+
     // 不再重新生成 video_id，直接使用表单中已有的、由watch生成的值
     // payload.video_id = generateVideoId(payload.liveroom_id)
 
@@ -136,7 +130,7 @@ const onSubmit = async () => {
     await store.createTask(payload)
     ElMessage.success('任务创建成功！')
     router.push('/download-center/tasks')
-    
+
   } catch (errorOrValidation) {
     // 4. 捕获验证错误或API调用错误
     // El-Form 的验证错误是一个包含字段和消息的对象，而不是一个Error实例

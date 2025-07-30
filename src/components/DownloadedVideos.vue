@@ -187,7 +187,7 @@ watch(currentPage, (newPage, oldPage) => {
   if(newPage !== oldPage) fetchTasks()
 })
 
-const goDetail = (id) => router.push(`/download-center/tasks/${id}`)
+const goDetail = (id) => router.push(`/download-center/${id}/videos/`)
 const goFailures = (id) => router.push(`/download-center/tasks/${id}/failures`)
 
 const retry = async (id) => {

@@ -18,6 +18,10 @@
           <el-icon><VideoCamera /></el-icon>
           <span>已下载视频</span>
         </el-menu-item>
+        <el-menu-item index="/download-center/failures">
+          <el-icon><Warning /></el-icon>
+          <span>下载失败</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <!-- 主内容区 -->
@@ -39,8 +43,8 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/download-center/tasks/create')) return '/download-center/tasks/create'
   // 检查任务的已下载视频页面 (/:taskId/videos)
   if (route.path.match(/^\/download-center\/[^\/]+\/videos/)) return '/download-center/videos'
+  if (route.path.startsWith('/download-center/failures')) return '/download-center/failures'
   if (route.path.startsWith('/download-center/tasks')) return '/download-center/tasks'
-  // if (route.path.startsWith('/download-center/failures')) return '/download-center/failures'
   if (route.path.startsWith('/download-center/videos')) return '/download-center/videos'
   return '/download-center/tasks'
 })

@@ -7,6 +7,8 @@ import DownloadTaskDetail from '@/components/DownloadTaskDetail.vue'
 import DownloadFailures from '@/components/DownloadFailures.vue'
 import DownloadedVideos from '@/components/DownloadedVideos.vue'
 import TaskVideosDetail from '@/components/DownloadVideosDetail.vue'
+import DownloadFailuresList from '@/components/DownloadFailuresList.vue'
+import DownloadFailureDetail from '@/components/DownloadFailureDetail.vue'
 
 const routes = [
   {
@@ -21,7 +23,8 @@ const routes = [
       { path: 'tasks/create', component: DownloadTaskCreate },
       { path: 'tasks/:taskId', component: DownloadTaskDetail },
       { path: 'tasks/:taskId/failures', component: DownloadFailures },
-      { path: 'failures', component: DownloadFailures },
+      { path: 'failures', component: DownloadFailuresList },
+      { path: 'failures/:failureId', component: DownloadFailureDetail },
       { path: 'videos', component: DownloadedVideos },
       { path: ':taskId/videos', component: TaskVideosDetail },
     ]

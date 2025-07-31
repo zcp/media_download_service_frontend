@@ -26,12 +26,23 @@
       <el-descriptions-item label="更新时间">{{ formatTime(detail?.updated_at) }}</el-descriptions-item>
       <el-descriptions-item label="完成时间">{{ formatTime(detail?.completed_at) }}</el-descriptions-item>
     </el-descriptions>
+    
+    <!-- 任务操作按钮 -->
+    <div v-if="hasTaskOperations" style="margin-top: 24px;">
+      <h4 style="margin-bottom: 12px; color: #333; font-size: 16px;">任务操作</h4>
+      <el-space>
+        <el-button @click="goFailures" v-if="['failed','partial_completed'].includes(detail?.status)">查看失败记录</el-button>
+        <el-button @click="pause" v-if="detail?.status==='processing'">暂停</el-button>
+        <el-button @click="resume" v-if="detail?.status==='failed'">恢复</el-button>
+        <el-button @click="retry" v-if="detail?.status==='failed'">重试</el-button>
+        <el-button type="danger" @click="cancel" v-if="['pending','processing'].includes(detail?.status)">取消</el-button>
+      </el-space>
+    </div>
+
+    <!-- 页面操作按钮 -->
     <div style="margin-top: 24px;">
-      <el-button @click="goFailures" v-if="['failed','partial_completed'].includes(detail?.status)">查看失败记录</el-button>
-      <el-button @click="pause" v-if="detail?.status==='processing'">暂停</el-button>
-      <el-button @click="resume" v-if="detail?.status==='failed'">恢复</el-button>
-      <el-button @click="retry" v-if="detail?.status==='failed'">重试</el-button>
-      <el-button type="danger" @click="cancel" v-if="['pending','processing'].includes(detail?.status)">取消</el-button>
+      <el-button @click="goTasksList">返回下载任务列表</el-button>
+      <el-button type="primary" @click="refreshData">刷新数据</el-button>
     </div>
   </el-card>
 </template>
@@ -63,6 +74,12 @@ const formattedLastError = computed(() => {
   return error;
 });
 
+// 计算是否有任务操作按钮
+const hasTaskOperations = computed(() => {
+  if (!detail.value?.status) return false;
+  return ['failed', 'partial_completed', 'processing', 'pending'].includes(detail.value.status);
+});
+
 const goBack = () => {
   if (route.query.fromPage) {
     router.push({ path: '/download-center/tasks', query: { page: route.query.fromPage } })
@@ -71,8 +88,41 @@ const goBack = () => {
   }
 }
 
+// 返回任务列表（与 goBack 功能相同，保持一致性）
+const goTasksList = () => {
+  if (route.query.fromPage) {
+    router.push({ path: '/download-center/tasks', query: { page: route.query.fromPage } })
+  } else {
+    router.push('/download-center/tasks')
+  }
+}
+
+// 刷新数据
+const refreshData = async () => {
+  await store.fetchTaskDetail(route.params.taskId)
+  ElMessage.success('数据已刷新')
+}
+
 const goFailures = () => router.push(`/download-center/tasks/${route.params.taskId}/failures`)
 const goVideos = () => router.push(`/download-center/tasks/${route.params.taskId}/videos`)
+
+const pause = async () => {
+  try {
+    // 这里需要调用暂停任务的 API
+    ElMessage.info('暂停功能待实现')
+  } catch (error) {
+    ElMessage.error('暂停任务失败')
+  }
+}
+
+const resume = async () => {
+  try {
+    // 这里需要调用恢复任务的 API  
+    ElMessage.info('恢复功能待实现')
+  } catch (error) {
+    ElMessage.error('恢复任务失败')
+  }
+}
 
 const retry = async () => {
   await store.retryDownloadTask(route.params.taskId)
@@ -127,15 +177,42 @@ const progressStatus = (status) => {
   border-radius: 8px;
   box-shadow: 0 2px 8px #0000000d;
 }
+
+/* 统一表格字体样式 */
+.detail-card :deep(.el-descriptions-item__cell) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #000;
+}
+
+.detail-card :deep(.el-descriptions-item__label) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #000;
+}
+
+/* 确保所有描述内容使用统一字体 */
+.detail-card :deep(.el-descriptions-item__content) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #000;
+}
+
 .header-content {
   display: flex;
   align-items: center;
   gap: 16px;
 }
+
 .header-title {
   font-size: 20px;
   font-weight: bold;
 }
+
 .header-id {
   color: #888;
   font-size: 14px;

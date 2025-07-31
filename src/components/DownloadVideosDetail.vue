@@ -4,8 +4,7 @@
       <el-page-header @back="goBack">
         <template #content>
           <div class="header-content">
-            <span class="header-title">任务已下载视频</span>
-            <span class="header-id">任务ID: {{ route.params.taskId }}</span>
+            <span class="header-title">已下载视频</span>
           </div>
         </template>
       </el-page-header>
@@ -24,6 +23,9 @@
         </el-descriptions-item>
         <el-descriptions-item label="视频ID" :span="2">
           <span class="id-text">{{ videoDetail?.video_id || '无' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="任务ID" :span="2">
+          <span class="id-text">{{ route.params.taskId }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="直播间ID">{{ videoDetail?.liveroom_id || '无' }}</el-descriptions-item>
         <el-descriptions-item label="直播间标题">{{ videoDetail?.liveroom_title || '无' }}</el-descriptions-item>
@@ -65,7 +67,7 @@
 
     <!-- 操作按钮 -->
     <div style="margin-top: 24px;">
-      <el-button @click="goTaskDetail">返回任务详情</el-button>
+      <el-button @click="goVideosList">返回已下载视频列表</el-button>
       <el-button type="primary" @click="refreshData">刷新数据</el-button>
     </div>
   </el-card>
@@ -115,8 +117,8 @@ const goBack = () => {
   router.push('/download-center/videos')
 }
 
-const goTaskDetail = () => {
-  router.push(`/download-center/tasks/${route.params.taskId}`)
+const goVideosList = () => {
+  router.push('/download-center/videos')
 }
 
 // 刷新数据
@@ -178,6 +180,30 @@ const videoStatusText = (status) => {
   box-shadow: 0 2px 8px #0000000d;
 }
 
+/* 统一表格字体样式 */
+.detail-card :deep(.el-descriptions-item__cell) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #000;
+}
+
+.detail-card :deep(.el-descriptions-item__label) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #000;
+}
+
+/* 确保所有描述内容使用统一字体 */
+.detail-card :deep(.el-descriptions-item__content) {
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #000;
+}
+
 .header-content {
   display: flex;
   align-items: center;
@@ -187,11 +213,6 @@ const videoStatusText = (status) => {
 .header-title {
   font-size: 20px;
   font-weight: bold;
-}
-
-.header-id {
-  color: #888;
-  font-size: 14px;
 }
 
 .ellipsis {
@@ -204,16 +225,18 @@ const videoStatusText = (status) => {
 
 .url-text {
   word-break: break-all;
-  color: #409eff;
-  font-family: monospace;
-  font-size: 12px;
+  color: #000;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .path-text {
   word-break: break-all;
-  color: #67c23a;
-  font-family: monospace;
-  font-size: 12px;
+  color: #000;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .loading-container {
@@ -227,9 +250,10 @@ const videoStatusText = (status) => {
 }
 
 .id-text {
-  font-family: monospace;
-  font-size: 12px;
-  color: #666;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #000;
   word-break: break-all;
+  line-height: 1.5;
 }
 </style>

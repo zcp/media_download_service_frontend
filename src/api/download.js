@@ -28,6 +28,10 @@ export const retryFailure = (taskId, failureId) => request.post(`/download/tasks
 export const abandonFailure = (taskId, failureId) => request.post(`/download/tasks/${taskId}/failures/${failureId}/abandon`)
 export const createDownloadFailure = (taskId, data) => request.post(`/download/tasks/${taskId}/failures`, data)
 
+// 全局失败记录相关API
+export const getAllFailures = (params = {}) => request.get('/download/failures', { params })
+export const getFailureDetail = (failureId) => request.get(`/download/failures/${failureId}`)
+
 // 单任务下已下载视频
 export const createDownloadedVideo = (taskId, data) => request.post(`/download/tasks/${taskId}/videos`, data)
 export const getDownloadedVideosByTask = (taskId, params) => request.get(`/download/tasks/${taskId}/videos`, { params })

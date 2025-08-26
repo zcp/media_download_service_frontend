@@ -1,27 +1,31 @@
-// frontend/vite.config.js
-import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import path from 'path';
-import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { resolve } from 'path'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
-  base: process.env.NODE_ENV === 'production' ? '/download-center/' : '/',
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': resolve(__dirname, 'src'),
     },
   },
   server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_PROXY_TARGET || 'http://0.0.0.0:8000',
-        changeOrigin: true,
-        secure: false,
-        ws: true,
-        //rewrite: (path) => path.replace(/^\/api/, '')
+    port: 3000,
+    host: true,
+    open: true
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          elementPlus: ['element-plus'],
+          utils: ['axios', 'dayjs']
+        }
       }
     }
   }
-});
+})

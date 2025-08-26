@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置测试页面</title>
+</head>
+<body>
+    <h1>环境配置测试</h1>
+    <div id="result"></div>
+    
+    <!-- 引入配置文件 -->
+    <script src="/config/env.js"></script>
+    
+    <script>
+        // 等待DOM加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultDiv = document.getElementById('result');
+            
+            // 检查配置是否加载
+            if (window.__ENV) {
+                resultDiv.innerHTML = `
+                    <h2>✅ 配置加载成功</h2>
+                    <pre>${JSON.stringify(window.__ENV, null, 2)}</pre>
+                    
+                    <h3>关键配置检查：</h3>
+                    <p><strong>登录URL:</strong> ${window.__ENV.VITE_LOGIN_URL}</p>
+                    <p><strong>API URL:</strong> ${window.__ENV.VITE_BASE_API_URL}</p>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <h2>❌ 配置加载失败</h2>
+                    <p>window.__ENV 未定义</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

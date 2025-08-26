@@ -1,259 +1,389 @@
 <template>
-  <el-card shadow="never" class="detail-card">
-    <template #header>
-      <el-page-header @back="goBack">
-        <template #content>
-          <div class="header-content">
-            <span class="header-title">已下载视频</span>
+  <div class="videos-page">
+    <!-- 页面头部 -->
+    <el-card class="header-card" shadow="never">
+      <div class="page-header">
+        <div class="header-left">
+          <el-button @click="goBack" :icon="ArrowLeft" type="text">返回</el-button>
+          <h2 class="page-title">{{ pageTitle }}</h2>
+          <el-tag type="info" size="large">
+            共 {{ downloadStore.videosTotal }} 个视频
+          </el-tag>
+        </div>
+        <div class="header-right">
+          <el-button @click="refreshVideos" :loading="loading">刷新</el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 视频列表 -->
+    <el-card class="table-card" shadow="never">
+      <el-table
+        :data="downloadStore.videos"
+        :loading="loading"
+        border
+        stripe
+        height="600"
+        v-loading="loading"
+      >
+        <el-table-column prop="id" label="视频ID" width="280" show-overflow-tooltip />
+        
+        <el-table-column prop="video_id" label="文件标识" width="200" show-overflow-tooltip />
+        
+        <el-table-column prop="liveroom_id" label="直播间ID" width="120" />
+        
+        <el-table-column prop="resource_type" label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getResourceTypeTagType(row.resource_type)" size="small">
+              {{ row.resource_type.toUpperCase() }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="file_size" label="文件大小" width="120">
+          <template #default="{ row }">
+            {{ formatFileSize(row.file_size) }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="duration" label="时长" width="100">
+          <template #default="{ row }">
+            {{ formatDuration(row.duration) }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="resolution" label="分辨率" width="120" />
+        
+        <el-table-column prop="format" label="格式" width="80" />
+        
+        <el-table-column prop="storage_path" label="存储路径" width="300" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="path-item">
+              <span>{{ row.storage_path }}</span>
+              <el-button 
+                size="small" 
+                text 
+                @click="copyPath(row.storage_path)"
+                :icon="CopyDocument"
+              />
+            </div>
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getVideoStatusTagType(row.status)" size="small">
+              {{ getVideoStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="download_end_time" label="完成时间" width="160">
+          <template #default="{ row }">
+            {{ formatDateTime(row.download_end_time, 'MM-DD HH:mm') }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button 
+              size="small" 
+              type="primary" 
+              @click="showVideoDetail(row)"
+            >
+              详情
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination-area">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="downloadStore.videosTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 视频详情对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="视频详情"
+      width="600px"
+      @close="selectedVideo = null"
+    >
+      <div v-if="selectedVideo" class="video-detail">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>视频ID:</label>
+            <span>{{ selectedVideo.video_id }}</span>
           </div>
-        </template>
-      </el-page-header>
-    </template>
-
-    <!-- 已下载视频详细信息 -->
-    <div v-if="loading" class="loading-container">
-      <el-loading></el-loading>
-      <p>加载中...</p>
-    </div>
-    
-    <div v-else style="margin-top: 0;">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="视频记录ID" :span="2">
-          <span class="id-text">{{ videoDetail?.id || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="视频ID" :span="2">
-          <span class="id-text">{{ videoDetail?.video_id || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="任务ID" :span="2">
-          <span class="id-text">{{ route.params.taskId }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="直播间ID">{{ videoDetail?.liveroom_id || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="直播间标题">{{ videoDetail?.liveroom_title || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="直播间URL">{{ videoDetail?.liveroom_url || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="视频类型">
-          <el-tag v-if="videoDetail?.video_type" :type="videoDetail.video_type === 'hls' ? 'info' : 'success'">
-            {{ videoDetail.video_type.toUpperCase() }}
-          </el-tag>
-          <span v-else>无</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="视频格式">{{ videoDetail?.format || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="分辨率">{{ videoDetail?.resolution || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="时长">{{ formatDuration(videoDetail?.duration) }}</el-descriptions-item>
-        <el-descriptions-item label="文件大小">{{ formatFileSize(videoDetail?.file_size) }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag v-if="videoDetail?.status" :type="videoStatusType(videoDetail.status)">
-            {{ videoStatusText(videoDetail.status) }}
-          </el-tag>
-          <span v-else>无</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="原始视频URL" :span="2">
-          <span class="url-text">{{ videoDetail?.video_url || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="存储路径" :span="2">
-          <span class="path-text">{{ videoDetail?.storage_path || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="封面URL" :span="2">
-          <span class="url-text">{{ videoDetail?.cover_url || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="封面存储路径" :span="2">
-          <span class="path-text">{{ videoDetail?.cover_path || '无' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="开始下载时间">{{ formatTime(videoDetail?.download_start_time) || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="完成下载时间">{{ formatTime(videoDetail?.download_end_time) || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatTime(videoDetail?.created_at) || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ formatTime(videoDetail?.updated_at) || '无' }}</el-descriptions-item>
-      </el-descriptions>
-    </div>
-
-    <!-- 操作按钮 -->
-    <div style="margin-top: 24px;">
-      <el-button @click="goVideosList">返回已下载视频列表</el-button>
-      <el-button type="primary" @click="refreshData">刷新数据</el-button>
-    </div>
-  </el-card>
+          <div class="detail-item">
+            <label>直播间标题:</label>
+            <span>{{ selectedVideo.liveroom_title || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <label>资源URL:</label>
+            <el-link :href="selectedVideo.resource_url" target="_blank" type="primary">
+              查看原始资源
+            </el-link>
+          </div>
+          <div class="detail-item">
+            <label>存储路径:</label>
+            <div class="path-detail">
+              <span>{{ selectedVideo.storage_path }}</span>
+              <el-button size="small" @click="copyPath(selectedVideo.storage_path)">
+                复制路径
+              </el-button>
+            </div>
+          </div>
+          <div class="detail-item" v-if="selectedVideo.cover_path">
+            <label>封面路径:</label>
+            <span>{{ selectedVideo.cover_path }}</span>
+          </div>
+          <div class="detail-item">
+            <label>下载开始时间:</label>
+            <span>{{ formatDateTime(selectedVideo.download_start_time) }}</span>
+          </div>
+          <div class="detail-item">
+            <label>下载结束时间:</label>
+            <span>{{ formatDateTime(selectedVideo.download_end_time) }}</span>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getDownloadedVideosByTask } from '@/api/download'
-import { formatTime } from '@/utils/time'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useDownloadStore } from '@/stores/download';
+import { formatDateTime, formatFileSize, formatDuration } from '@/utils/time';
+import { ArrowLeft, CopyDocument } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
+const downloadStore = useDownloadStore();
 
-// 数据状态
-const loading = ref(false)
-const videoDetail = ref(null)
+const loading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(20);
+const dialogVisible = ref(false);
+const selectedVideo = ref(null);
 
-// 获取已下载视频详细信息
-const fetchVideoDetail = async () => {
-  loading.value = true
+const taskId = computed(() => route.params.taskId);
+
+// 页面标题计算属性
+const pageTitle = computed(() => {
+  return taskId.value ? `已下载视频列表（任务 ${taskId.value}）` : '已下载视频列表';
+});
+
+// 是否为全局视频页面
+const isGlobalVideos = computed(() => !taskId.value);
+
+onMounted(async () => {
+  await fetchVideos();
+});
+
+const fetchVideos = async () => {
+  loading.value = true;
   try {
+    console.log('开始获取视频列表...');
+    console.log('是否为全局视频页面:', isGlobalVideos.value);
+    console.log('任务ID:', taskId.value);
+    
+    // 如果是全局视频页面，不传递taskId
+    const taskIdToUse = isGlobalVideos.value ? null : taskId.value;
+    console.log('使用的任务ID:', taskIdToUse);
+    
     const params = {
-      page: 1,
-      size: 1
-    }
-    const response = await getDownloadedVideosByTask(route.params.taskId, params)
-    const videos = response.data.data.items || []
-    videoDetail.value = videos.length > 0 ? videos[0] : null
+      page: currentPage.value,
+      size: pageSize.value
+    };
+    console.log('查询参数:', params);
+    
+    await downloadStore.fetchVideos(taskIdToUse, params);
+    console.log('视频列表获取成功');
   } catch (error) {
-    console.error('获取已下载视频失败:', error)
-    ElMessage.error('获取已下载视频失败')
-    videoDetail.value = null
+    console.error('获取视频列表失败:', error);
+    console.error('错误详情:', {
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      status: error.status
+    });
+    
+    // 根据错误类型显示不同的提示
+    if (error.message && error.message.includes('500')) {
+      ElMessage.error('服务器内部错误，请稍后重试或联系管理员');
+    } else if (error.message && error.message.includes('404')) {
+      ElMessage.error('接口不存在，请联系管理员');
+    } else {
+      ElMessage.error('获取视频列表失败，请重试');
+    }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
-// 页面初始化
-onMounted(() => {
-  fetchVideoDetail()
-})
+const refreshVideos = async () => {
+  await fetchVideos();
+  ElMessage.success('刷新成功');
+};
 
-// 导航函数
-const goBack = () => {
-  router.push('/download-center/videos')
-}
+const handleSizeChange = async (newSize) => {
+  pageSize.value = newSize;
+  currentPage.value = 1;
+  await fetchVideos();
+};
 
-const goVideosList = () => {
-  router.push('/download-center/videos')
-}
+const handleCurrentChange = async (newPage) => {
+  currentPage.value = newPage;
+  await fetchVideos();
+};
 
-// 刷新数据
-const refreshData = () => {
-  fetchVideoDetail()
-}
+const showVideoDetail = (video) => {
+  selectedVideo.value = video;
+  dialogVisible.value = true;
+};
+
+const copyPath = async (path) => {
+  try {
+    await navigator.clipboard.writeText(path);
+    ElMessage.success('路径已复制到剪贴板');
+  } catch (error) {
+    ElMessage.error('复制失败');
+  }
+};
+
+const goBack = () => router.back();
 
 // 工具函数
-const formatFileSize = (bytes) => {
-  if (bytes === null || bytes === undefined) return '无'
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+const getResourceTypeTagType = (type) => {
+  const map = {
+    hls: 'primary',
+    mp4: 'success',
+    image: 'warning'
+  };
+  return map[type] || '';
+};
 
-const formatDuration = (seconds) => {
-  if (seconds === null || seconds === undefined) return '无'
-  if (seconds === 0) return '00:00'
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-
-  if (hours > 0) {
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  } else {
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-}
-
-const getFileName = (storagePath) => {
-  if (!storagePath) return '未知文件'
-  const parts = storagePath.split('/')
-  return parts[parts.length - 1] || storagePath
-}
-
-// 视频状态相关 (根据数据库表的status字段: completed, partial_completed, failed)
-const videoStatusType = (status) => {
-  if (status === 'completed') return 'success'
-  if (status === 'partial_completed') return 'warning'
-  if (status === 'failed') return 'danger'
-  return ''
-}
-
-const videoStatusText = (status) => {
+const getVideoStatusText = (status) => {
   const map = {
     completed: '已完成',
     partial_completed: '部分完成',
     failed: '失败'
-  }
-  return map[status] || status
-}
+  };
+  return map[status] || status;
+};
+
+const getVideoStatusTagType = (status) => {
+  const map = {
+    completed: 'success',
+    partial_completed: 'warning',
+    failed: 'danger'
+  };
+  return map[status] || '';
+};
 </script>
 
 <style scoped>
-.detail-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px #0000000d;
+.videos-page {
+  padding: 24px;
+  background: #f5f7fa;
+  min-height: 100%;
 }
 
-/* 统一表格字体样式 */
-.detail-card :deep(.el-descriptions-item__cell) {
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #000;
+.header-card {
+  margin-bottom: 24px;
 }
 
-.detail-card :deep(.el-descriptions-item__label) {
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: #000;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* 确保所有描述内容使用统一字体 */
-.detail-card :deep(.el-descriptions-item__content) {
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #000;
-}
-
-.header-content {
+.header-left {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.header-title {
-  font-size: 20px;
-  font-weight: bold;
+.page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-  max-width: 200px;
+.path-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.url-text {
-  word-break: break-all;
-  color: #000;
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+.pagination-area {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
-.path-text {
-  word-break: break-all;
-  color: #000;
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+.video-detail {
+  padding: 16px 0;
 }
 
-.loading-container {
-  text-align: center;
-  padding: 40px 0;
-  color: #666;
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
 }
 
-.no-data {
-  padding: 40px 0;
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.id-text {
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  color: #000;
-  word-break: break-all;
-  line-height: 1.5;
+.detail-item label {
+  min-width: 120px;
+  font-weight: 500;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.path-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .videos-page {
+    padding: 16px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .detail-item label {
+    min-width: auto;
+  }
 }
 </style>

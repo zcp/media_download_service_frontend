@@ -1,185 +1,382 @@
 <template>
-  <div class="create-task-container">
-    <el-card shadow="never" class="form-card">
+  <div class="task-create-page">
+    <el-card class="create-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <span data-testid="card-header-title">创建下载任务</span>
+          <h2 class="page-title">创建下载任务</h2>
+          <el-button @click="goBack" :icon="ArrowLeft">返回列表</el-button>
         </div>
       </template>
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="资源URL" prop="resource_url">
-          <el-input v-model="form.resource_url" placeholder="粘贴链接后将自动识别类型" clearable />
-        </el-form-item>
-        <el-form-item label="资源类型" prop="resource_type">
-          <el-select v-model="form.resource_type" placeholder="自动识别或手动选择">
-            <el-option label="HLS" value="hls" />
-            <el-option label="MP4" value="mp4" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="直播间ID" prop="liveroom_id">
-          <el-input v-model="form.liveroom_id" placeholder="输入后将自动生成视频ID" clearable/>
-        </el-form-item>
-        <el-form-item label="视频ID" prop="video_id">
-          <el-input v-model="form.video_id" placeholder="系统自动生成的唯一标识" readonly />
-        </el-form-item>
-        <el-form-item label="直播间标题" prop="liveroom_title">
-          <el-input v-model="form.liveroom_title" placeholder="（选填）任务的别名" clearable/>
-        </el-form-item>
-        <el-form-item label="直播间URL" prop="liveroom_url">
-          <el-input v-model="form.liveroom_url" placeholder="（选填）原始页面链接" clearable/>
-        </el-form-item>
-        <el-form-item class="action-buttons">
-          <el-button @click="onCancel">取消</el-button>
-          <el-button type="primary" @click="onSubmit">立即创建</el-button>
-        </el-form-item>
+
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="120px"
+        size="large"
+        @submit.prevent="handleSubmit"
+      >
+        <!-- 基本信息 -->
+        <div class="form-section">
+          <h3 class="section-title">基本信息</h3>
+
+          <el-form-item label="资源URL" prop="resource_url" required>
+            <el-input
+              v-model="form.resource_url"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入资源URL（支持HLS、MP4、图片等格式）"
+              show-word-limit
+              maxlength="2000"
+            />
+            <div class="form-tip">
+              支持的格式：HLS (.m3u8)、MP4 (.mp4)、图片 (.jpg, .png, .gif)
+            </div>
+          </el-form-item>
+
+          <el-form-item label="资源类型" prop="resource_type" required>
+            <el-select v-model="form.resource_type" placeholder="选择资源类型">
+              <el-option label="HLS" value="hls" />
+              <el-option label="MP4" value="mp4" />
+              <el-option label="图片" value="image" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="视频ID" prop="video_id" required>
+            <el-input
+              v-model="form.video_id"
+              placeholder="自动生成的视频ID"
+              show-word-limit
+              maxlength="100"
+              :disabled="true"
+              class="video-id-input"
+            >
+              <template #append>
+                <el-button @click="generateVideoId" :disabled="!form.liveroom_id">
+                  自动生成
+                </el-button>
+              </template>
+            </el-input>
+            <div class="form-tip">
+              视频ID将自动生成，格式：UUID4
+            </div>
+          </el-form-item>
+
+          <el-form-item label="直播间ID" prop="liveroom_id" required>
+            <el-input
+              v-model="form.liveroom_id"
+              placeholder="请输入直播间ID"
+              @input="handleLiveroomIdChange"
+            />
+          </el-form-item>
+        </div>
+
+        <!-- 直播间信息 -->
+        <div class="form-section">
+          <h3 class="section-title">直播间信息</h3>
+
+          <el-form-item label="直播间标题" prop="liveroom_title">
+            <el-input
+              v-model="form.liveroom_title"
+              placeholder="请输入直播间标题（建议填写）"
+              show-word-limit
+              maxlength="200"
+            />
+          </el-form-item>
+
+          <el-form-item label="直播间URL" prop="liveroom_url">
+            <el-input
+              v-model="form.liveroom_url"
+              placeholder="请输入直播间URL（建议填写）"
+              show-word-limit
+              maxlength="500"
+            />
+          </el-form-item>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="form-actions">
+          <el-button size="large" @click="handleReset">重置</el-button>
+          <el-button
+            type="primary"
+            size="large"
+            @click="handleSubmit"
+            :loading="submitting"
+          >
+            创建任务
+          </el-button>
+        </div>
       </el-form>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, defineExpose } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDownloadStore } from '@/store/download'
-import { ElMessage } from 'element-plus'
-import { validateUrl, generateVideoId, sanitizeForCsv } from '@/utils/security'
-import { isValidVideoId } from '@/utils/validate'
+import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useDownloadStore } from '@/stores/download';
+import { ArrowLeft } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { v4 as uuidv4 } from 'uuid';
 
-import { v4 as uuidv4 } from 'uuid'
+const router = useRouter();
+const downloadStore = useDownloadStore();
 
-const router = useRouter()
-const store = useDownloadStore()
-const formRef = ref()
-const form = ref({
+const formRef = ref();
+const submitting = ref(false);
+
+// 表单数据
+const form = reactive({
   resource_url: '',
   resource_type: '',
-  video_id: uuidv4(), // 直接在初始化时生成UUID
+  video_id: '',
   liveroom_id: '',
   liveroom_title: '',
   liveroom_url: ''
-})
+});
 
-// 监听资源URL变化，自动识别类型
-watch(() => form.value.resource_url, (newUrl) => {
-  if (newUrl) {
-    if (newUrl.toLowerCase().includes('.m3u8')) {
-      form.value.resource_type = 'hls';
-    } else if (newUrl.toLowerCase().includes('.mp4')) {
-      form.value.resource_type = 'mp4';
+// 验证规则
+const rules = {
+  resource_url: [
+    { required: true, message: '请输入资源URL', trigger: 'blur' },
+    {
+      pattern: /^https?:\/\/.+/,
+      message: '请输入有效的URL格式',
+      trigger: 'blur'
     }
+  ],
+  resource_type: [
+    { required: true, message: '请选择资源类型', trigger: 'change' }
+  ],
+  video_id: [
+    { required: false, message: '视频ID不能为空', trigger: 'blur' }
+  ],
+  liveroom_id: [
+    { required: true, message: '请输入直播间ID', trigger: 'blur' }
+  ],
+  liveroom_title: [
+    { required: false, message: '请输入直播间标题', trigger: 'blur' }
+  ],
+  liveroom_url: [
+    { required: false, message: '请输入直播间URL', trigger: 'blur' },
+    {
+      pattern: /^(https?:\/\/.+)?$/,
+      message: '请输入有效的URL格式',
+      trigger: 'blur'
+    }
+  ]
+};
+
+// 生成视频ID
+const generateVideoId = () => {
+  if (!form.liveroom_id) {
+    ElMessage.warning('请先输入直播间ID');
+    return;
+  }
+
+  const uuid = uuidv4();
+  form.video_id = uuid; // 只使用纯UUID，不拼接liveroom_id
+  ElMessage.success('视频ID生成成功');
+};
+
+// 直播间ID变化处理
+const handleLiveroomIdChange = () => {
+  // 如果video_id为空或者包含旧的liveroom_id，自动更新
+  if (!form.video_id || form.video_id.includes('_')) {
+    generateVideoId();
+  }
+};
+
+// 页面加载时自动生成视频ID（如果有直播间ID）
+const autoGenerateVideoId = () => {
+  if (form.liveroom_id && !form.video_id) {
+    generateVideoId();
+  }
+};
+
+// 页面挂载时执行
+onMounted(() => {
+  // 如果有直播间ID，自动生成视频ID
+  if (form.liveroom_id) {
+    autoGenerateVideoId();
   }
 });
 
-
-
-
-// 自定义安全URL验证器
-const secureUrlValidator = (rule, value, callback) => {
-  const result = validateUrl(value)
-  if (result.isValid) {
-    callback()
-  } else {
-    callback(new Error(result.reason))
-  }
-}
-
-const rules = {
-  resource_url: [
-    { required: true, message: '资源URL是必填项', trigger: 'blur' },
-    { validator: secureUrlValidator, trigger: 'blur' }
-  ],
-  resource_type: [{ required: true, message: '请选择一个资源类型', trigger: 'change' }],
-  liveroom_id: [
-    { required: true, message: '直播间ID是必填项', trigger: 'blur' },
-    { pattern: /^\d{8,10}$/, message: '直播间ID必须为8-10位数字', trigger: 'blur' }
-  ]
-}
-
-const onSubmit = async () => {
-  if (!formRef.value) return
+// 提交表单
+const handleSubmit = async () => {
+  if (!formRef.value) return;
 
   try {
-    // 1. 触发表单验证，如果失败会抛出错误，被 catch 捕获
-    await formRef.value.validate()
+    await formRef.value.validate();
 
-    // 2. 如果验证通过，准备并发送数据
-    const payload = { ...form.value }
+    submitting.value = true;
 
-        // 确保有 UUID（虽然理论上肯定有，但作为保险）
-    if (!payload.video_id) {
-      payload.video_id = uuidv4()
-    }
+    const taskData = { ...form };
+    
+    // 添加调试信息
+    console.log('提交的表单数据:', taskData);
+    
+    // 确保所有字段都有值，避免发送 undefined
+    Object.keys(taskData).forEach(key => {
+      if (taskData[key] === undefined || taskData[key] === null) {
+        taskData[key] = '';
+      }
+    });
+    
+    console.log('清理后的表单数据:', taskData);
 
-    // 对标题进行CSV注入清理
-    if (payload.liveroom_title) {
-      payload.liveroom_title = sanitizeForCsv(payload.liveroom_title)
+    await downloadStore.createTask(taskData);
+
+    ElMessage.success('任务创建成功');
+
+    // 跳转到任务列表
+    router.push('/download-center/tasks');
+  } catch (error) {
+    if (error.errors) {
+      // 表单验证错误
+      console.log('表单验证失败:', error);
     } else {
-      delete payload.liveroom_title
+      // API调用错误
+      console.error('创建任务失败:', error);
+      ElMessage.error('创建任务失败，请重试');
     }
-    if (payload.liveroom_url) {
-        payload.liveroom_url = payload.liveroom_url.trim()
-    } else {
-        delete payload.liveroom_url
-    }
-    payload.liveroom_id = String(payload.liveroom_id).padStart(10, '0')
-
-    // 不再重新生成 video_id，直接使用表单中已有的、由watch生成的值
-    // payload.video_id = generateVideoId(payload.liveroom_id)
-
-    // 3. 调用 store action，如果API调用失败，也会被 catch 捕获
-    await store.createTask(payload)
-    ElMessage.success('任务创建成功！')
-    router.push('/download-center/tasks')
-
-  } catch (errorOrValidation) {
-    // 4. 捕获验证错误或API调用错误
-    // El-Form 的验证错误是一个包含字段和消息的对象，而不是一个Error实例
-    if (errorOrValidation && errorOrValidation.message) {
-      // API Error
-       ElMessage.error(errorOrValidation.message || '创建失败，请稍后重试')
-    } else {
-      // Validation Error
-      console.log('表单验证失败:', errorOrValidation)
-      ElMessage.error('请检查并修正表单中的错误项')
-      // Do not re-throw the validation error. Let the component handle it gracefully.
-      // throw errorOrValidation
-    }
+  } finally {
+    submitting.value = false;
   }
-}
+};
 
-const onCancel = () => router.push('/download-center/tasks')
+// 重置表单
+const handleReset = () => {
+  if (formRef.value) {
+    formRef.value.resetFields();
+  }
 
-// Expose the method for testing purposes
-defineExpose({
-  onSubmit
-})
+  Object.keys(form).forEach(key => {
+    form[key] = '';
+  });
+};
+
+// 返回列表
+const goBack = () => {
+  router.back();
+};
 </script>
 
 <style scoped>
-.create-task-container {
-  padding: 24px 32px;
-  background: #f6f8fa;
+.task-create-page {
+  padding: 24px;
+  background: #f5f7fa;
+  min-height: 100%;
 }
-.form-card {
-  max-width: 680px;
+
+.create-card {
+  max-width: 800px;
   margin: 0 auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px #0000000d;
 }
+
 .card-header {
-  font-size: 20px;
-  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+
+.page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.form-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.section-title {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.form-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.form-actions {
+  margin-top: 32px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* 视频ID输入框样式 */
+.video-id-input {
+  background-color: #f5f7fa;
+}
+
+.video-id-input :deep(.el-input__inner) {
+  background-color: #f5f7fa;
+  color: #606266;
+  cursor: not-allowed;
+}
+
+.video-id-input :deep(.el-input__inner:disabled) {
+  background-color: #f5f7fa;
+  color: #606266;
+  border-color: #dcdfe6;
+}
+
+/* 确保所有表单项对齐 */
 .el-form-item {
-    margin-bottom: 22px;
+  margin-bottom: 24px;
 }
+
+.el-form-item__label {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* 统一输入框样式 */
+.el-input,
 .el-select {
   width: 100%;
 }
-.action-buttons {
-  margin-top: 16px;
+
+/* 响应式标签宽度 */
+@media (max-width: 768px) {
+  .el-form {
+    label-width: 100px !important;
+  }
 }
-.action-buttons :deep(.el-form-item__content) {
-  justify-content: flex-end;
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .task-create-page {
+    padding: 16px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .form-section {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
 }
 </style>

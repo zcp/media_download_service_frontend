@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录流程测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 12px 20px; margin: 8px; cursor: pointer; border: none; border-radius: 4px; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .step { margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #007bff; }
+        .log { max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 登录流程测试工具</h1>
+    
+    <div class="section info">
+        <h2>📖 使用说明</h2>
+        <p>这个工具帮助您测试和调试整个登录流程。按照步骤进行测试：</p>
+        <div class="step">1. 清除现有数据</div>
+        <div class="step">2. 测试跳转到登录页面</div>
+        <div class="step">3. 模拟登录成功回调</div>
+        <div class="step">4. 验证最终跳转</div>
+    </div>
+    
+    <div class="section">
+        <h2>🧹 第一步：清理环境</h2>
+        <button class="btn-warning" onclick="clearAll()">清除所有数据</button>
+        <button class="btn-primary" onclick="checkCurrentState()">检查当前状态</button>
+        <div id="clear-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>🚀 第二步：测试登录跳转</h2>
+        <p>模拟访问受保护页面，应该跳转到登录页面：</p>
+        <button class="btn-primary" onclick="testLoginRedirect()">测试跳转到登录页面</button>
+        <div id="redirect-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>🎫 第三步：模拟登录成功</h2>
+        <p>模拟从登录页面返回的Token：</p>
+        <input type="text" id="test-token" placeholder="输入测试Token（可选，会自动生成）" style="width: 300px; padding: 8px;">
+        <br><br>
+        <button class="btn-success" onclick="simulateLoginSuccess()">模拟登录成功</button>
+        <button class="btn-primary" onclick="generateTestToken()">生成测试Token</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>🔍 第四步：验证完整流程</h2>
+        <button class="btn-success" onclick="testCompleteFlow()">测试完整流程</button>
+        <div id="complete-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>📊 实时日志</h2>
+        <button class="btn-warning" onclick="clearLogs()">清除日志</button>
+        <div id="logs" class="log"></div>
+    </div>
+
+    <script>
+        let logContainer = document.getElementById('logs');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            logContainer.innerHTML = '';
+        }
+        
+        function clearAll() {
+            localStorage.clear();
+            sessionStorage.clear();
+            document.getElementById('clear-result').innerHTML = '<div class="success">✅ 所有数据已清除</div>';
+            log('🧹 清除了所有localStorage和sessionStorage数据', 'success');
+        }
+        
+        function checkCurrentState() {
+            const token = localStorage.getItem('jwt_token');
+            const redirectPath = localStorage.getItem('auth_redirect_path');
+            
+            let html = '<h3>当前状态:</h3>';
+            let hasToken = false;
+            
+            if (token) {
+                hasToken = true;
+                html += '<div class="success">✅ 存在Token</div>';
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const currentTime = Date.now() / 1000;
+                    const isExpired = payload.exp <= currentTime;
+                    
+                    html += `<div class="${isExpired ? 'error' : 'success'}">
+                        ${isExpired ? '❌' : '✅'} Token ${isExpired ? '已过期' : '有效'}
+                    </div>`;
+                    
+                    if (!isExpired) {
+                        const timeLeft = Math.round(payload.exp - currentTime);
+                        html += `<p>剩余时间: ${timeLeft} 秒</p>`;
+                    }
+                } catch (e) {
+                    html += '<div class="error">❌ Token格式错误</div>';
+                }
+            } else {
+                html += '<div class="warning">⚠️ 没有Token</div>';
+            }
+            
+            if (redirectPath) {
+                html += `<div class="info">📍 保存的重定向路径: ${redirectPath}</div>`;
+            }
+            
+            document.getElementById('clear-result').innerHTML = html;
+            log(`📊 检查状态: Token=${hasToken ? '存在' : '无'}, RedirectPath=${redirectPath || '无'}`);
+        }
+        
+        function testLoginRedirect() {
+            // 保存测试路径
+            localStorage.setItem('auth_redirect_path', '/download-center/tasks');
+            
+            // 构建登录URL
+            const callbackUrl = `${window.location.origin}/simple-callback.html`;
+            const loginUrl = `http://localhost:5173/pages/auth/login?redirect_uri=${encodeURIComponent(callbackUrl)}`;
+            
+            document.getElementById('redirect-result').innerHTML = `
+                <div class="info">
+                    <h4>📋 跳转信息:</h4>
+                    <p><strong>回调地址:</strong> ${callbackUrl}</p>
+                    <p><strong>登录地址:</strong> ${loginUrl}</p>
+                    <p><strong>保存的重定向路径:</strong> /download-center/tasks</p>
+                </div>
+                <button class="btn-primary" onclick="window.open('${loginUrl}', '_blank')">在新窗口打开登录页面</button>
+            `;
+            
+            log(`🚀 准备跳转到登录页面: ${loginUrl}`, 'info');
+        }
+        
+        function generateTestToken() {
+            const header = btoa(JSON.stringify({typ: "JWT", alg: "HS256"}));
+            const payload = btoa(JSON.stringify({
+                user_id: "test-user-123",
+                username: "测试用户",
+                email: "test@example.com",
+                exp: Math.floor(Date.now() / 1000) + 3600 // 1小时后过期
+            }));
+            const signature = "test-signature";
+            const testToken = `${header}.${payload}.${signature}`;
+            
+            document.getElementById('test-token').value = testToken;
+            log('🎫 生成了测试Token', 'success');
+        }
+        
+        function simulateLoginSuccess() {
+            let token = document.getElementById('test-token').value;
+            
+            if (!token) {
+                generateTestToken();
+                token = document.getElementById('test-token').value;
+            }
+            
+            // 模拟回调页面的处理
+            const callbackUrl = `${window.location.origin}/auth/callback?token=${encodeURIComponent(token)}`;
+            
+            document.getElementById('login-result').innerHTML = `
+                <div class="success">
+                    <h4>✅ 模拟登录成功</h4>
+                    <p><strong>Token:</strong> ${token.substring(0, 50)}...</p>
+                    <p><strong>回调地址:</strong> ${callbackUrl}</p>
+                </div>
+                <button class="btn-success" onclick="window.open('${callbackUrl}', '_blank')">在新窗口测试回调</button>
+            `;
+            
+            log(`✅ 模拟登录成功，Token: ${token.substring(0, 20)}...`, 'success');
+        }
+        
+        function testCompleteFlow() {
+            log('🔄 开始完整流程测试...', 'info');
+            
+            // 第一步：清除数据
+            clearAll();
+            
+            setTimeout(() => {
+                // 第二步：设置重定向路径
+                localStorage.setItem('auth_redirect_path', '/download-center/tasks');
+                log('📍 设置重定向路径: /download-center/tasks', 'info');
+                
+                setTimeout(() => {
+                    // 第三步：生成Token
+                    generateTestToken();
+                    const token = document.getElementById('test-token').value;
+                    
+                    setTimeout(() => {
+                        // 第四步：模拟完整回调
+                        const callbackUrl = `${window.location.origin}/auth/callback?token=${encodeURIComponent(token)}`;
+                        
+                        document.getElementById('complete-result').innerHTML = `
+                            <div class="success">
+                                <h4>🎉 完整流程准备就绪</h4>
+                                <p>1. ✅ 清除了旧数据</p>
+                                <p>2. ✅ 设置了重定向路径</p>
+                                <p>3. ✅ 生成了测试Token</p>
+                                <p>4. 🚀 可以测试回调</p>
+                            </div>
+                            <button class="btn-success" onclick="window.location.href='${callbackUrl}'">执行回调测试</button>
+                        `;
+                        
+                        log('🎉 完整流程准备完成，可以执行测试', 'success');
+                    }, 500);
+                }, 500);
+            }, 500);
+        }
+        
+        // 页面加载时检查状态
+        window.onload = function() {
+            checkCurrentState();
+            log('📱 测试工具已加载', 'info');
+        };
+    </script>
+</body>
+</html>

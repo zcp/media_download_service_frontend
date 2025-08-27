@@ -42,24 +42,9 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="视频ID" prop="video_id" required>
-            <el-input
-              v-model="form.video_id"
-              placeholder="自动生成的视频ID"
-              show-word-limit
-              maxlength="100"
-              :disabled="true"
-              class="video-id-input"
-            >
-              <template #append>
-                <el-button @click="generateVideoId" :disabled="!form.liveroom_id">
-                  自动生成
-                </el-button>
-              </template>
-            </el-input>
-            <div class="form-tip">
-              视频ID将自动生成，格式：UUID4
-            </div>
+          <!-- 隐藏的video_id字段，用于向后端传递 -->
+          <el-form-item prop="video_id" style="display: none;">
+            <el-input v-model="form.video_id" />
           </el-form-item>
 
           <el-form-item label="直播间ID" prop="liveroom_id" required>
@@ -75,19 +60,19 @@
         <div class="form-section">
           <h3 class="section-title">直播间信息</h3>
 
-          <el-form-item label="直播间标题" prop="liveroom_title">
+          <el-form-item label="直播间标题" prop="liveroom_title" required>
             <el-input
               v-model="form.liveroom_title"
-              placeholder="请输入直播间标题（建议填写）"
+              placeholder="请输入直播间标题"
               show-word-limit
               maxlength="200"
             />
           </el-form-item>
 
-          <el-form-item label="直播间URL" prop="liveroom_url">
+          <el-form-item label="直播间URL" prop="liveroom_url" required>
             <el-input
               v-model="form.liveroom_url"
-              placeholder="请输入直播间URL（建议填写）"
+              placeholder="请输入直播间URL"
               show-word-limit
               maxlength="500"
             />
@@ -155,10 +140,10 @@ const rules = {
     { required: true, message: '请输入直播间ID', trigger: 'blur' }
   ],
   liveroom_title: [
-    { required: false, message: '请输入直播间标题', trigger: 'blur' }
+    { required: true, message: '请输入直播间标题', trigger: 'blur' }
   ],
   liveroom_url: [
-    { required: false, message: '请输入直播间URL', trigger: 'blur' },
+    { required: true, message: '请输入直播间URL', trigger: 'blur' },
     {
       pattern: /^(https?:\/\/.+)?$/,
       message: '请输入有效的URL格式',
@@ -181,10 +166,8 @@ const generateVideoId = () => {
 
 // 直播间ID变化处理
 const handleLiveroomIdChange = () => {
-  // 如果video_id为空或者包含旧的liveroom_id，自动更新
-  if (!form.video_id || form.video_id.includes('_')) {
-    generateVideoId();
-  }
+  // 自动更新video_id，确保每次都有新的UUID
+  form.video_id = uuidv4();
 };
 
 // 页面加载时自动生成视频ID（如果有直播间ID）
@@ -196,6 +179,10 @@ const autoGenerateVideoId = () => {
 
 // 页面挂载时执行
 onMounted(() => {
+    // 自动生成video_id，确保表单提交时有值
+    if (!form.video_id) {
+    form.video_id = uuidv4();
+  }
   // 如果有直播间ID，自动生成视频ID
   if (form.liveroom_id) {
     autoGenerateVideoId();

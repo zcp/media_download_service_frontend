@@ -18,6 +18,10 @@
                 <el-icon><User /></el-icon>
                 个人信息
               </el-dropdown-item>
+                <el-dropdown-item command="home">  <!-- 新增 -->
+                    <el-icon><House /></el-icon>     <!-- 新增图标 -->
+                        主页                           <!-- 新增 -->
+                </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>
                 退出登录
@@ -42,12 +46,12 @@
             <el-icon><List /></el-icon>
             <span>下载任务列表</span>
           </el-menu-item>
-          
+
           <el-menu-item index="/download-center/tasks/create">
             <el-icon><Plus /></el-icon>
             <span>创建下载任务</span>
           </el-menu-item>
-          
+
           <el-sub-menu index="failures">
             <template #title>
               <el-icon><Warning /></el-icon>
@@ -58,7 +62,7 @@
               <span>下载失败记录</span>
             </el-menu-item>
           </el-sub-menu>
-          
+
           <el-sub-menu index="videos">
             <template #title>
               <el-icon><VideoPlay /></el-icon>
@@ -89,18 +93,19 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDownloadStore } from '@/stores/download';
-import { 
-  User, 
-  ArrowDown, 
-  SwitchButton, 
-  List, 
-  Plus, 
-  Warning, 
-  DocumentRemove, 
-  VideoPlay, 
-  Folder 
+import {
+  User,
+  ArrowDown,
+  SwitchButton,
+  List,
+  Plus,
+  Warning,
+  DocumentRemove,
+  VideoPlay,
+  Folder
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { FRONTEND_USER_URL } from '@/constants/api';
 
 const router = useRouter();
 const route = useRoute();
@@ -109,6 +114,8 @@ const downloadStore = useDownloadStore();
 
 // 当前激活的菜单项
 const activeMenu = ref('');
+
+
 
 // 当前任务ID（用于动态菜单显示）
 const currentTaskId = computed(() => {
@@ -135,9 +142,17 @@ const handleMenuSelect = (index) => {
 const handleUserAction = async (command) => {
   switch (command) {
     case 'profile':
-      ElMessage.info('个人信息功能待实现');
+      //ElMessage.info('个人信息功能待实现');
+      // 直接跳转到外部用户资料页面
+      const profileUrl = FRONTEND_USER_URL + '/pages/user/profile';
+      window.location.href = profileUrl;
       break;
-      
+
+    case 'home':
+      const homeUrl = FRONTEND_USER_URL + '/pages/index/index';
+      window.location.href = homeUrl;
+      break;
+
     case 'logout':
       try {
         await ElMessageBox.confirm(
@@ -149,7 +164,7 @@ const handleUserAction = async (command) => {
             type: 'warning',
           }
         );
-        
+
         // 执行登出
         authStore.logout();
         ElMessage.success('已退出登录');
@@ -163,7 +178,7 @@ const handleUserAction = async (command) => {
 // 初始化页面
 onMounted(() => {
   console.log('下载中心页面已挂载');
-  
+
   // 开始轮询更新（如果有正在进行的任务）
   downloadStore.startPolling(5000);
 });
@@ -171,7 +186,7 @@ onMounted(() => {
 // 清理资源
 onUnmounted(() => {
   console.log('下载中心页面已卸载');
-  
+
   // 停止轮询
   downloadStore.stopPolling();
 });
@@ -307,15 +322,15 @@ onUnmounted(() => {
   .sidebar {
     width: 200px;
   }
-  
+
   .header {
     padding: 0 16px;
   }
-  
+
   .header-left .title {
     font-size: 18px;
   }
-  
+
   .nav-menu .el-menu-item,
   .nav-menu .el-sub-menu__title {
     margin: 0 8px 4px;
@@ -326,24 +341,24 @@ onUnmounted(() => {
   .main-content {
     flex-direction: column;
   }
-  
+
   .sidebar {
     width: 100%;
     height: auto;
     order: 2;
   }
-  
+
   .content-area {
     order: 1;
     min-height: 60vh;
   }
-  
+
   .nav-menu {
     display: flex;
     overflow-x: auto;
     padding: 8px 16px;
   }
-  
+
   .nav-menu .el-menu-item,
   .nav-menu .el-sub-menu {
     flex-shrink: 0;

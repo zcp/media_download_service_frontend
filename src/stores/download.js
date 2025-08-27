@@ -101,9 +101,13 @@ export const useDownloadStore = defineStore('download', {
      * 获取任务列表
      * @param {object} params - 查询参数
      */
-    async fetchTasks(params = {}) {
-      this.tasksLoading = true;
+    async fetchTasks(params = {}, forceLoading = false) {
+      // 只在强制loading或初始加载时显示loading
+      if (forceLoading || !this.tasks.length) {
+        this.tasksLoading = true;
+      }
       this.tasksError = null;
+      
       
       try {
         // 合并参数
@@ -134,6 +138,8 @@ export const useDownloadStore = defineStore('download', {
         this.tasksLoading = false;
       }
     },
+    
+
     
     /**
      * 刷新任务列表

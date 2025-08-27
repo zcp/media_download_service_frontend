@@ -84,11 +84,8 @@ request.interceptors.response.use(
     // 根据后端统一响应格式处理
     const { code, message, data } = response.data;
     
-    console.log('响应拦截器处理 - code:', code, 'message:', message);
-    
     // 处理成功状态码：200(成功)、201(创建成功)、204(无内容)
     if (code === 200 || code === 201 || code === 204) {
-      console.log('响应成功，返回data:', data);
       return data; // 成功时直接返回data部分
     } else {
       // 业务错误

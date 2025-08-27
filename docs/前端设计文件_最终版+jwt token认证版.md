@@ -41,6 +41,11 @@
 - **环境变量:** 支持通过环境变量进行多环境配置
 - **动态加载:** 运行时动态读取配置，支持部署时修改
 
+**跨服务前端跳转配置：**
+- **用户服务前端地址：** 通过环境变量配置用户服务前端的基础URL
+- **Profile页面跳转：** 支持从媒体下载服务跳转到用户服务的个人资料页面
+- **统一跳转管理：** 所有跨服务跳转都通过配置文件管理，支持多环境部署
+
 ## 项目目录结构
 ```
 ├── public/
@@ -89,7 +94,8 @@ export const ENV_CONFIG = {
   // ===== 用户认证服务配置 =====
   VITE_AUTH_API_URL: 'http://124.220.235.226:8002/',
   VITE_LOGIN_URL: 'http://124.220.235.226:5173/pages/auth/login',
-  
+  // ===== 用户服务前端地址配置 =====
+  VITE_FRONTEND_USER_URL: 'http://localhost:5173',  // 用户服务前端基础地址
   // ===== 跨服务回调配置 =====
   VITE_CALLBACK_PATH: '/simple-callback.html',
   VITE_AUTH_CALLBACK_PATH: '/auth/callback',
@@ -139,6 +145,10 @@ export const LOGIN_URL =
   getEnv('VITE_LOGIN_URL') || 
   (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/pages/auth/login` : '');
 
+// 用户服务前端基础地址
+export const FRONTEND_USER_URL = getEnv('VITE_FRONTEND_USER_URL') || 
+  (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+
 // 回调路径配置
 export const CALLBACK_PATH = getEnv('VITE_CALLBACK_PATH') || '/simple-callback.html';
 export const AUTH_CALLBACK_PATH = getEnv('VITE_AUTH_CALLBACK_PATH') || '/auth/callback';
@@ -175,6 +185,9 @@ export const WS_URL = getEnv('VITE_WS_URL') || '';
 # 直接修改 config/env.js 中的配置值
 VITE_BASE_API_URL: 'http://localhost:8001/'
 VITE_LOGIN_URL: 'http://localhost:5173/pages/auth/login'
+
+VITE_FRONTEND_USER_URL: 'http://localhost:5173'
+
 ```
 
 #### 生产部署环境
@@ -182,6 +195,7 @@ VITE_LOGIN_URL: 'http://localhost:5173/pages/auth/login'
 # 修改 config/env.js 为实际的生产环境地址
 VITE_BASE_API_URL: 'http://124.220.235.226:8001/'
 VITE_LOGIN_URL: 'http://124.220.235.226:5173/pages/auth/login'
+VITE_FRONTEND_USER_URL: 'http://124.220.235.226:5173'
 ```
 
 #### Docker部署
@@ -220,6 +234,29 @@ import { LOGIN_URL, BASE_API_URL } from '@/constants/api';
 
 window.location.href = LOGIN_URL;
 const response = await axios.get(BASE_API_URL + 'v1/download/tasks');
+```
+
+#### 跨服务跳转规范
+- **用户服务跳转：** 所有跳转到用户服务前端的操作必须使用`FRONTEND_USER_URL`常量
+- **Profile页面跳转：** 用户点击个人信息时，跳转地址为`${FRONTEND_USER_URL}/pages/user/profile`
+- **配置管理：** 用户服务前端地址通过`config/env.js`统一管理，支持多环境部署
+- **跳转方式：** 使用`window.location.href`进行完整页面跳转，确保用户体验一致
+
+#### 代码示例对比
+
+**❌ 错误的硬编码方式：**
+```javascript
+// 绝对禁止这样写！
+window.location.href = 'http://localhost:5173/pages/user/profile';
+```
+
+**✅ 正确的配置化方式：**
+```javascript
+// 必须这样写
+import { FRONTEND_USER_URL } from '@/constants/api';
+
+const profileUrl = `${FRONTEND_USER_URL}/pages/user/profile`;
+window.location.href = profileUrl;
 ```
 
 #### 部署流程
@@ -566,6 +603,11 @@ router.beforeEach(async (to, from, next) => {
   - 显示当前登录用户名（从JWT Token中解析）
   - 提供登出按钮（清理本地Token并跳转登录页）
   - 显示用户头像（如果JWT Token中包含相关信息）
+  - 实现用户下拉菜单，包含：
+    - [ ] "个人信息"选项：跳转地址 `${FRONTEND_USER_URL}/pages/user/profile`
+    - [ ] "主页"选项：跳转地址`${FRONTEND_USER_URL}/pages/index/index`
+  - 使用`window.location.href`进行页面跳转，确保完全跳转到用户服务前端
+
 
 ### 4.4. 下载任务列表页 (/download-center/tasks)
 - 布局:
@@ -611,6 +653,63 @@ router.beforeEach(async (to, from, next) => {
  -  空状态与加载
   - 无数据时显示友好提示，引导用户创建新任务。
   - 数据加载时显示 loading 动画，防止误操作。
+
+### 批量操作功能设计
+
+**批量选择机制：**
+- 在表格第一列添加复选框列（`<el-table-column type="selection" />`），支持多选任务
+- 实现全选/反选功能，支持跨页选择（如果后端支持）
+- 选择状态实时更新，显示当前选中的任务数量
+
+**批量操作按钮：**
+- 在操作区域顶部添加批量操作按钮组，包括：
+  - "批量下载"按钮：仅当选中任务中有可下载状态的任务时启用
+  - "批量重试"按钮：仅当选中任务中有可重试状态的任务时启用
+- **按钮可见性策略：**
+  - **始终显示：** 批量下载和批量重试按钮始终在界面上可见，不隐藏
+  - **状态感知启用：** 根据选中任务的可用状态动态启用/禁用按钮
+  - **视觉状态区分：** 使用颜色和透明度变化来区分不同状态
+- **按钮状态设计：**
+  - **无选中任务时：** 按钮显示为灰色（禁用状态），但保持可见
+  - **有选中任务但无可操作任务时：** 按钮显示为浅灰色，文本显示"批量下载 (0)"或"批量重试 (0)"
+  - **有可操作任务时：** 按钮显示为明亮颜色，文本显示"批量下载 (3)"或"批量重试 (2)"
+- 按钮文本显示：显示可操作的任务数量，如"批量下载 (3)"
+
+**状态感知的批量操作：**
+- **批量下载状态控制：**
+  - 可下载状态：`pending`（待处理）
+  - 不可下载状态：`processing`（处理中）、`completed`（已完成）、`failed`（失败）、`cancelled`（已取消）
+  - 按钮启用条件：选中任务中至少有一个`pending`状态的任务
+
+- **批量重试状态控制：**
+  - 可重试状态：`failed`（失败）、`cancelled`（已取消）、`partial_completed`（部分完成）
+  - 不可重试状态：`pending`（待处理）、`processing`（处理中）、`completed`（已完成）
+  - 按钮启用条件：选中任务中至少有一个可重试状态的任务
+
+**批量操作执行流程：**
+1. **用户选择任务** → 批量操作按钮根据选中任务状态动态启用/禁用
+2. **点击批量操作** → 显示确认对话框，列出将要操作的任务数量和状态
+3. **确认执行** → 并行执行所有操作，每个任务独立处理
+4. **状态反馈** → 实时显示操作进度，操作完成后显示结果统计
+5. **界面更新** → 自动刷新任务列表，更新所有相关任务状态
+
+**批量操作状态管理：**
+- 使用响应式数据管理批量操作状态：`batchStarting`、`batchRetrying`
+- 操作过程中禁用所有相关按钮，防止重复操作
+- 每个任务的操作状态独立管理，支持部分成功/失败的情况
+- 操作完成后自动清理状态，恢复按钮可用性
+
+**用户反馈机制：**
+- 操作前：显示确认对话框，明确操作内容和影响范围
+- 操作中：显示进度提示，告知用户当前操作状态
+- 操作后：显示结果统计，包括成功数量、失败数量和具体失败原因
+- 错误处理：单个任务失败不影响其他任务，提供详细的错误信息
+
+**用户体验优势：**
+- **一致性：** 用户始终能看到所有可用的批量操作选项
+- **学习性：** 新用户可以了解系统支持哪些批量操作
+- **状态透明：** 用户可以清楚看到当前选择状态和可执行的操作
+- **操作引导：** 按钮文本显示可操作数量，引导用户进行有效选择
 
 ### 4.5. 创建下载任务页 (/download-center/tasks/create)
 - 布局:
@@ -703,6 +802,10 @@ router.beforeEach(async (to, from, next) => {
 #### 5.1 认证状态管理
 
 #### 5.1.1. 认证Store设计
+**跨服务跳转支持：**
+- 所有需要跳转到用户服务的操作都通过`FRONTEND_USER_URL`常量构建完整URL
+- 跳转前确保用户服务前端地址配置正确
+- 支持开发、测试、生产环境的动态配置
 
 // stores/auth.js 完整实现
 import { defineStore } from 'pinia'
@@ -1116,6 +1219,47 @@ const handleStartDownload = async (taskId) => {
 - 重要通知可配置为持久显示
 - 考虑添加浏览器原生通知支持
 
+### 批量操作实现规范
+
+**批量操作核心要求：**
+- **状态感知：** 根据任务当前状态智能判断是否可执行批量操作
+- **并行执行：** 所有任务操作并行执行，提高操作效率
+- **独立状态管理：** 每个任务的操作状态独立管理，互不影响
+- **实时反馈：** 操作过程中实时更新界面状态，提供操作进度
+
+**技术实现要点：**
+```javascript
+// 批量操作状态管理示例
+const batchStarting = ref(false);
+const batchRetrying = ref(false);
+const selectedTasks = ref([]);
+
+// 计算可操作的任务数量
+const startableTasksCount = computed(() => {
+  return selectedTasks.value.filter(task => canStart(task.status)).length;
+});
+
+const retryableTasksCount = computed(() => {
+  return selectedTasks.value.filter(task => canRetry(task.status)).length;
+});
+
+// 按钮启用条件
+const hasStartableTasks = computed(() => startableTasksCount.value > 0);
+const hasRetryableTasks = computed(() => retryableTasksCount.value > 0);
+```
+
+**状态变化处理：**
+- 实现任务状态变化监听器，自动更新批量操作按钮状态
+- 当选中任务状态发生变化时，重新计算可操作任务数量
+- 支持动态选择：用户可以在操作过程中继续选择/取消选择任务
+- 状态同步：确保批量操作按钮状态与选中任务的实际状态保持一致
+
+**错误处理策略：**
+- 单个任务操作失败不影响其他任务的执行
+- 提供详细的操作结果报告，包括成功和失败的详细信息
+- 失败任务提供重试选项，支持快速重新操作
+- 网络异常时提供重试机制，确保操作的可靠性
+
 ### 5.7. 数据验证
 
 - 在创建任务表单提交前，进行前端数据验证，包括必填项、URL格式、 video_id 格式等，减少无效请求。
@@ -1218,6 +1362,29 @@ const handleStartDownload = async (taskId) => {
 - **操作中：** 按钮显示加载状态，禁用重复操作
 - **操作后：** 显示结果通知，自动更新相关数据
 - **异常处理：** 错误时显示友好提示，提供重试选项
+
+### 批量操作UI设计规范
+
+**批量选择界面：**
+- 表格选择列使用标准复选框样式，支持单选和多选
+- 表头提供全选/反选功能，提升批量操作效率
+- 选中状态有明显的视觉反馈，如行高亮、复选框勾选等
+
+**批量操作按钮设计：**
+- 按钮位置：放置在操作区域顶部，与单个操作按钮分组
+- 按钮样式：使用不同的颜色区分下载（绿色）和重试（橙色）
+- 状态指示：按钮文本显示可操作的任务数量，如"批量下载 (3)"
+- **禁用状态样式：**
+  - 不可操作时按钮显示为灰色，但保持可见
+  - 使用透明度变化来区分不同状态
+  - 确保按钮在禁用状态下仍然可见，提供一致的用户体验
+
+**操作反馈设计：**
+- 确认对话框：显示操作摘要，包括任务数量、状态分布等
+- 进度指示：操作过程中显示进度条或加载动画
+- 结果展示：操作完成后显示结果统计，使用表格或列表形式
+- 错误详情：失败任务提供展开/收起功能，显示具体错误信息
+
 
 ## 八、测试策略 (新增)
 

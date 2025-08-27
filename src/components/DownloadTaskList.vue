@@ -9,7 +9,11 @@
             共 {{ downloadStore.tasksTotal }} 个任务
           </el-tag>
         </div>
-        <div class="header-right">
+      </div>
+      
+      <!-- 新增：操作按钮区域 -->
+      <div class="operation-buttons">
+        <div class="button-group">
           <el-button 
             type="primary" 
             :icon="Plus" 
@@ -17,6 +21,28 @@
           >
             创建任务
           </el-button>
+          
+          <!-- 批量操作按钮 - 始终显示，根据选择状态启用/禁用 -->
+          <el-button 
+            type="success" 
+            @click="handleBatchStart"
+            :loading="batchStarting"
+            :disabled="selectedTasks.length === 0 || !hasStartableTasks"
+            :class="{ 'button-disabled': selectedTasks.length === 0 || !hasStartableTasks }"
+          >
+            批量下载 ({{ startableTasksCount }})
+          </el-button>
+          
+          <el-button 
+            type="warning" 
+            @click="handleBatchRetry"
+            :loading="batchRetrying"
+            :disabled="selectedTasks.length === 0 || !hasRetryableTasks"
+            :class="{ 'button-disabled': selectedTasks.length === 0 || !hasRetryableTasks }"
+          >
+            批量重试 ({{ retryableTasksCount }})
+          </el-button>
+          
           <el-button 
             :icon="Refresh" 
             @click="refreshTasks"
@@ -26,7 +52,6 @@
           </el-button>
         </div>
       </div>
-
       <!-- 筛选区域 -->
       <div class="filter-area">
         <el-form 
@@ -84,14 +109,15 @@
     <el-card class="table-card" shadow="never">
       <el-table
         :data="downloadStore.tasks"
-        :loading="downloadStore.tasksLoading"
         border
         stripe
         height="600"
         @row-click="handleRowClick"
-        v-loading="downloadStore.tasksLoading"
+        @selection-change="handleSelectionChange"
         element-loading-text="加载中..."
       >
+      <!-- 新增：批量选择列 -->
+      <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="任务ID" width="280" show-overflow-tooltip>
           <template #default="{ row }">
             <el-link type="primary" @click.stop="goToDetail(row.id)">
@@ -152,7 +178,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button 
@@ -271,6 +297,11 @@ const retryingTasks = ref(new Set());
 const cancelingTasks = ref(new Set());
 const startingTasks = ref(new Set());
 
+// 新增：批量操作状态
+const selectedTasks = ref([]);
+const batchStarting = ref(false);
+const batchRetrying = ref(false);
+
 // 计算属性
 const searchParams = computed(() => ({
   page: currentPage.value,
@@ -278,6 +309,29 @@ const searchParams = computed(() => ({
   sort: 'created_at:desc',
   ...filterForm
 }));
+
+// 静默刷新
+const silentRefreshTasks = async () => {
+  await downloadStore.fetchTasks(searchParams.value, false);
+};
+
+// 新增：批量选择处理
+const handleSelectionChange = (selection) => {
+  selectedTasks.value = selection;
+};
+
+// 新增：计算可操作的任务数量
+const startableTasksCount = computed(() => {
+  return selectedTasks.value.filter(task => canStart(task.status)).length;
+});
+
+const retryableTasksCount = computed(() => {
+  return selectedTasks.value.filter(task => canRetry(task.status)).length;
+});
+
+const hasStartableTasks = computed(() => startableTasksCount.value > 0);
+const hasRetryableTasks = computed(() => retryableTasksCount.value > 0);
+
 
 // 生命周期
 onMounted(async () => {
@@ -396,22 +450,21 @@ const handleStart = async (taskId) => {
     // 异步执行下载任务，不等待结果
     downloadStore.startTask(taskId)
       .then(() => {
-        // 下载启动成功
         ElMessage.success('任务开始下载成功');
-        // 刷新任务列表以更新状态
-        fetchTasks();
+        // 延迟刷新，避免频繁API调用
+        setTimeout(() => silentRefreshTasks(), 1000);
       })
       .catch((error) => {
-        // 下载启动失败
         console.error('开始下载任务失败:', error);
         ElMessage.error('开始下载任务失败，请重试');
-        // 刷新任务列表以更新状态
-        fetchTasks();
+        // 延迟刷新
+        setTimeout(() => silentRefreshTasks(), 1000);
       })
       .finally(() => {
         // 无论成功失败，都要从正在下载集合中移除
         startingTasks.value.delete(taskId);
       });
+      
       
   } catch (error) {
     if (error !== 'cancel') {
@@ -442,14 +495,14 @@ const handleRetry = async (taskId) => {
         // 重试启动成功
         ElMessage.success('任务重试成功');
         // 刷新任务列表以更新状态
-        fetchTasks();
+        setTimeout(() => silentRefreshTasks(), 1000);
       })
       .catch((error) => {
         // 重试启动失败
         console.error('重试任务失败:', error);
         ElMessage.error('重试任务失败，请重试');
         // 刷新任务列表以更新状态
-        fetchTasks();
+        setTimeout(() => silentRefreshTasks(), 1000);
       })
       .finally(() => {
         // 无论成功失败，都要从正在重试集合中移除
@@ -502,6 +555,132 @@ const handleDropdownAction = (command, row) => {
       break;
   }
 };
+
+
+// 新增：批量开始下载任务
+const handleBatchStart = async () => {
+  const startableTasks = selectedTasks.value.filter(task => canStart(task.status));
+  
+  if (startableTasks.length === 0) {
+    ElMessage.warning('没有可开始下载的任务');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要开始下载 ${startableTasks.length} 个任务吗？`, 
+      '确认批量开始下载', 
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'info',
+      }
+    );
+
+    batchStarting.value = true;
+    
+    // 将所有可开始的任务ID添加到startingTasks集合
+    startableTasks.forEach(task => startingTasks.value.add(task.id));
+    
+    ElMessage.info(`正在启动 ${startableTasks.length} 个下载任务，请稍候...`);
+    
+    // 并行执行所有开始下载操作
+    const promises = startableTasks.map(task => 
+      downloadStore.startTask(task.id)
+        .then(() => {
+          ElMessage.success(`任务 ${formatTaskId(task.id)} 开始下载成功`);
+        })
+        .catch((error) => {
+          console.error(`开始下载任务 ${task.id} 失败:`, error);
+          ElMessage.error(`任务 ${formatTaskId(task.id)} 开始下载失败`);
+        })
+        .finally(() => {
+          startingTasks.value.delete(task.id);
+        })
+    );
+    
+    // 等待所有操作完成
+    await Promise.allSettled(promises);
+    
+    // 延迟刷新，避免频繁API调用
+    setTimeout(() => silentRefreshTasks(), 1000);
+    
+    ElMessage.success(`批量操作完成，成功启动 ${startableTasks.length} 个任务`);
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量开始下载失败:', error);
+      ElMessage.error('批量开始下载失败');
+    }
+  } finally {
+    batchStarting.value = false;
+    // 清理所有任务ID
+    startableTasks.forEach(task => startingTasks.value.delete(task.id));
+  }
+};
+
+// 新增：批量重试任务
+const handleBatchRetry = async () => {
+  const retryableTasks = selectedTasks.value.filter(task => canRetry(task.status));
+  
+  if (retryableTasks.length === 0) {
+    ElMessage.warning('没有可重试的任务');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要重试 ${retryableTasks.length} 个任务吗？`, 
+      '确认批量重试', 
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    batchRetrying.value = true;
+    
+    // 将所有可重试的任务ID添加到retryingTasks集合
+    retryableTasks.forEach(task => retryingTasks.value.add(task.id));
+    
+    ElMessage.info(`正在重试 ${retryableTasks.length} 个任务，请稍候...`);
+    
+    // 并行执行所有重试操作
+    const promises = retryableTasks.map(task => 
+      downloadStore.retryTask(task.id)
+        .then(() => {
+          ElMessage.success(`任务 ${formatTaskId(task.id)} 重试成功`);
+        })
+        .catch((error) => {
+          console.error(`重试任务 ${task.id} 失败:`, error);
+          ElMessage.error(`任务 ${formatTaskId(task.id)} 重试失败`);
+        })
+        .finally(() => {
+          retryingTasks.value.delete(task.id);
+        })
+    );
+    
+    // 等待所有操作完成
+    await Promise.allSettled(promises);
+    
+    // 刷新任务列表
+    await silentRefreshTasks();
+    
+    ElMessage.success(`批量操作完成，成功重试 ${retryableTasks.length} 个任务`);
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量重试失败:', error);
+      ElMessage.error('批量重试失败');
+    }
+  } finally {
+    batchRetrying.value = false;
+    // 清理所有任务ID
+    retryableTasks.forEach(task => retryingTasks.value.delete(task.id));
+  }
+};
+
 
 // 工具函数
 const formatTaskId = (id) => {
@@ -603,9 +782,17 @@ const hasFailures = (status) => {
   color: #1f2937;
 }
 
-.header-right {
+/* 操作按钮区域样式 */
+.operation-buttons {
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.button-group {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .filter-area {
@@ -657,8 +844,14 @@ const hasFailures = (status) => {
     justify-content: space-between;
   }
   
-  .header-right {
-    justify-content: flex-end;
+  .button-group {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  
+  .button-group .el-button {
+    flex: 1;
+    min-width: 120px;
   }
   
   .filter-area :deep(.el-form) {
@@ -671,5 +864,28 @@ const hasFailures = (status) => {
     margin-right: 0;
     margin-bottom: 8px;
   }
+
+  /* 禁用状态的按钮样式 */
+.button-disabled {
+  opacity: 0.6;
+  background-color: #f5f7fa !important;
+  border-color: #dcdfe6 !important;
+  color: #c0c4cc !important;
+}
+
+.button-disabled:hover {
+  background-color: #f5f7fa !important;
+  border-color: #dcdfe6 !important;
+  color: #c0c4cc !important;
+}
+
+/* 确保按钮在禁用状态下仍然可见 */
+.el-button:disabled {
+  opacity: 0.6;
+  background-color: #f5f7fa !important;
+  border-color: #dcdfe6 !important;
+  color: #c0c4cc !important;
+}
+
 }
 </style>

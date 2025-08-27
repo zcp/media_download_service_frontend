@@ -44,6 +44,9 @@ export const LOGIN_URL =
   getEnv('VITE_LOGIN_URL') ||
   (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/pages/auth/login` : '');
 
+export const FRONTEND_USER_URL = getEnv('VITE_FRONTEND_USER_URL') || 
+(typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+
 // 其他配置常量
 export const APP_TITLE = getEnv('VITE_APP_TITLE') || '媒体下载服务';
 export const API_TIMEOUT = parseInt(getEnv('VITE_API_TIMEOUT')) || 30000;

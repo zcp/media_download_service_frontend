@@ -13,6 +13,8 @@
     // ===== 用户登录页面地址 =====
     VITE_LOGIN_URL: 'http://localhost:5173/pages/auth/login',
     
+    VITE_FRONTEND_USER_URL: 'http://localhost:5173',
+
     // ===== 其他配置 =====
     VITE_APP_TITLE: '媒体下载服务',
     VITE_API_TIMEOUT: '30000',

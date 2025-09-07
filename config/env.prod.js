@@ -15,7 +15,7 @@
 
     // ===== 其他配置 =====
     VITE_APP_TITLE: '媒体下载服务',
-
+    VITE_APP_BASE_PATH: '/download-center/',
   };
 
   // 导出到全局供 constants/api.js 读取

@@ -5,8 +5,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { isTokenValid } from '@/utils/auth';
-import { LOGIN_URL } from '@/constants/api';
 
+import { LOGIN_URL, APP_BASE_PATH } from '@/constants/api';  // �� 修改这一行
 // 路由组件懒加载
 const DownloadCenter = () => import('@/components/DownloadCenter.vue');
 const DownloadTaskList = () => import('@/components/DownloadTaskList.vue');
@@ -166,58 +166,62 @@ const router = createRouter({
 // 全局前置守卫
 router.beforeEach(async (to, from, next) => {
   console.log(`路由导航: ${from.path} -> ${to.path}`);
-  
+
   // 更新页面标题
   if (to.meta?.title) {
     document.title = `${to.meta.title} - 媒体下载服务`;
   }
-  
+
   // 检查是否需要认证
   const requiresAuth = to.meta?.requiresAuth || isProtectedRoute(to.path);
-  
+
   if (requiresAuth) {
     const authStore = useAuthStore();
-    
+
     console.log('检查认证状态...');
-    
+
     // 检查Token是否存在
     const savedToken = localStorage.getItem('jwt_token');
     if (!savedToken) {
       console.log('未找到Token，跳转登录');
       authStore.setRedirectPath(to.fullPath);
-      
+
       // 保存原始路径到localStorage
       localStorage.setItem('auth_redirect_path', to.fullPath);
-      
-      // 使用简化参数避免URL编码问题
+
+      // 构建包含应用基础路径的origin
       const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
-      
+      const appBasePath = APP_BASE_PATH.replace(/\/$/, ''); // 移除末尾的斜杠
+      const originWithPath = `${originDomain}${appBasePath}`;
+      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originWithPath}`;
+
       console.log('跳转登录，原始路径:', to.fullPath);
-      console.log('回调域名:', originDomain);
+      console.log('回调域名（含路径）:', originWithPath);
       window.location.href = loginUrlWithCallback;
       return;
     }
-    
+
     // 检查Token是否有效
     if (!isTokenValid(savedToken)) {
       console.log('Token已过期，跳转登录');
       authStore.clearAuth();
       authStore.setRedirectPath(to.fullPath);
-      
+
       // 保存原始路径到localStorage
       localStorage.setItem('auth_redirect_path', to.fullPath);
-      
-      // 使用简化参数避免URL编码问题
+
+      // 构建包含应用基础路径的origin
       const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
-      
+      const appBasePath = APP_BASE_PATH.replace(/\/$/, ''); // 移除末尾的斜杠
+      const originWithPath = `${originDomain}${appBasePath}`;
+      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originWithPath}`;
+
       console.log('Token过期，跳转登录，原始路径:', to.fullPath);
-      console.log('回调域名:', originDomain);
+      console.log('回调域名（含路径）:', originWithPath);
       window.location.href = loginUrlWithCallback;
       return;
     }
-    
+
     // Token有效，确保store中的认证状态正确
     if (!authStore.isAuthenticated) {
       console.log('恢复认证状态...');
@@ -228,25 +232,25 @@ router.beforeEach(async (to, from, next) => {
         return;
       }
     }
-    
+
     console.log('认证检查通过');
     authStore.isAuthenticated = true;
   }
-  
+
   next();
 });
 
 // 全局后置钩子
 router.afterEach((to, from) => {
   console.log(`路由导航完成: ${to.path}`);
-  
+
   // 在这里可以添加页面访问统计等逻辑
 });
 
 // 路由错误处理
 router.onError((error) => {
   console.error('路由错误:', error);
-  
+
   // 可以在这里处理路由加载失败等错误
   if (error.message.includes('Loading chunk')) {
     // 处理代码分割加载失败
@@ -263,7 +267,7 @@ export const routerUtils = {
   goToTaskDetail(taskId) {
     router.push(`/download-center/tasks/${taskId}`);
   },
-  
+
   /**
    * 跳转到失败记录页
    * @param {string} taskId - 任务ID
@@ -271,7 +275,7 @@ export const routerUtils = {
   goToFailures(taskId) {
     router.push(`/download-center/tasks/${taskId}/failures`);
   },
-  
+
   /**
    * 跳转到已下载视频页
    * @param {string} taskId - 任务ID
@@ -279,28 +283,28 @@ export const routerUtils = {
   goToVideos(taskId) {
     router.push(`/download-center/tasks/${taskId}/videos`);
   },
-  
+
   /**
    * 返回上一页
    */
   goBack() {
     router.back();
   },
-  
+
   /**
    * 跳转到任务列表页
    */
   goToTaskList() {
     router.push('/download-center/tasks');
   },
-  
+
   /**
    * 跳转到创建任务页
    */
   goToCreateTask() {
     router.push('/download-center/tasks/create');
   },
-  
+
   /**
    * 检查当前路由是否匹配
    * @param {string} routeName - 路由名称
@@ -309,7 +313,7 @@ export const routerUtils = {
   isCurrentRoute(routeName) {
     return router.currentRoute.value.name === routeName;
   },
-  
+
   /**
    * 获取当前路由参数
    * @param {string} paramName - 参数名

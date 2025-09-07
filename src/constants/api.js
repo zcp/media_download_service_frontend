@@ -44,10 +44,13 @@ export const LOGIN_URL =
   getEnv('VITE_LOGIN_URL') ||
   (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/pages/auth/login` : '');
 
-export const FRONTEND_USER_URL = getEnv('VITE_FRONTEND_USER_URL') || 
+export const FRONTEND_USER_URL = getEnv('VITE_FRONTEND_USER_URL') ||
 (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
 
 // 其他配置常量
+// 在现有配置中添加这一行
+export const APP_BASE_PATH = getEnv('VITE_APP_BASE_PATH') || '/download-center/';
+
 export const APP_TITLE = getEnv('VITE_APP_TITLE') || '媒体下载服务';
 export const API_TIMEOUT = parseInt(getEnv('VITE_API_TIMEOUT')) || 30000;
 export const POLLING_INTERVAL = parseInt(getEnv('VITE_POLLING_INTERVAL')) || 5000;
@@ -58,6 +61,7 @@ console.log('API配置常量:', {
   BASE_API_URL,
   AUTH_API_URL,
   LOGIN_URL,
+  APP_BASE_PATH,  // 👈 在调试输出中添加这一行
   APP_TITLE,
   API_TIMEOUT,
   POLLING_INTERVAL,

@@ -5,6 +5,7 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
+  base: '/download-center/',  // 添加这一行
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

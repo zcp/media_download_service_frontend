@@ -192,8 +192,8 @@ router.beforeEach(async (to, from, next) => {
       // 构建包含应用基础路径的origin
       const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
       const appBasePath = APP_BASE_PATH.replace(/\/$/, ''); // 移除末尾的斜杠
-      const originWithPath = `${originDomain}${appBasePath}`;
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originWithPath}`;
+      //const originWithPath = `${originDomain}${appBasePath}`;
+      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}&app_path=${appBasePath}`;
 
       console.log('跳转登录，原始路径:', to.fullPath);
       console.log('回调域名（含路径）:', originWithPath);
@@ -213,8 +213,8 @@ router.beforeEach(async (to, from, next) => {
       // 构建包含应用基础路径的origin
       const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
       const appBasePath = APP_BASE_PATH.replace(/\/$/, ''); // 移除末尾的斜杠
-      const originWithPath = `${originDomain}${appBasePath}`;
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originWithPath}`;
+      //const originWithPath = `${originDomain}${appBasePath}`;
+      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}&app_path=${appBasePath}`;
 
       console.log('Token过期，跳转登录，原始路径:', to.fullPath);
       console.log('回调域名（含路径）:', originWithPath);

@@ -29,6 +29,9 @@ export function handleAuthingCallback(token, userInfo = null) {
         'localhost:5173',
         '127.0.0.1:3000',
         '127.0.0.1:5173',
+		// 添加生产环境域名
+		'124.220.235.226',
+		'dev.lancet.im'
         // 添加您的生产域名
         // 'your-domain.com'
       ]

@@ -122,7 +122,7 @@
                 
                 // 保存token到目标域名
                 // const targetDomain = 'localhost:3000'; // 您的前端应用域名
-                const targetDomain = 'https://124.220.235.226/download-center'; // 您的前端应用域名
+                const targetDomain = '124.220.235.226/download-center'; // 您的前端应用域名
                 const callbackUrl = `https://${targetDomain}/auth/callback?token=${encodeURIComponent(token)}`;
                 
                 updateStatus('登录成功！', '正在跳转到应用...', false, true);

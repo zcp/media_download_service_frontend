@@ -196,7 +196,7 @@ router.beforeEach(async (to, from, next) => {
       const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}&app_path=${appBasePath}`;
 
       console.log('跳转登录，原始路径:', to.fullPath);
-      console.log('回调域名（含路径）:', originWithPath);
+      //console.log('回调域名（含路径）:', originWithPath);
       window.location.href = loginUrlWithCallback;
       return;
     }
@@ -217,7 +217,7 @@ router.beforeEach(async (to, from, next) => {
       const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}&app_path=${appBasePath}`;
 
       console.log('Token过期，跳转登录，原始路径:', to.fullPath);
-      console.log('回调域名（含路径）:', originWithPath);
+      //console.log('回调域名（含路径）:', originWithPath);
       window.location.href = loginUrlWithCallback;
       return;
     }

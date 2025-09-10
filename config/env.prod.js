@@ -7,9 +7,6 @@
     // ===== 媒体下载服务后端API地址 =====
     VITE_BASE_API_URL: 'https://124.220.235.226/api/dl',
 
-    // ===== 用户认证服务地址 =====
-    VITE_AUTH_API_URL: 'https://124.220.235.226/api/users',
-
     // ===== 用户登录页面地址 =====
     VITE_LOGIN_URL: 'https://124.220.235.226/pages/auth/login',
 

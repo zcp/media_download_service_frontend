@@ -76,6 +76,75 @@
 │       └── env.js           # 环境配置文件
 ```
 
+## nginx 前端配置文件
+    # ===== 重定向规则 =====
+    location = /user-service {
+        return 301 https://124.220.235.226/;
+    }
+
+
+    location ~ ^/user-service/(.*)$ {
+        return 301 https://124.220.235.226/$1;
+    }
+    # ===== 用户服务前端 - 主页面 =====
+    location / {
+            root /var/www/html/user-service;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+
+            # 静态资源缓存
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                root /var/www/html/user-service;
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+            }
+        }
+
+    # 新增：处理静态资源请求
+    location /assets/ {
+            root /var/www/html/user-service;
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+    }
+
+   # 修改：前端静态文件服务 - 改为 /download-center 路径
+   location /download-center {
+            alias /var/www/html/media-download/;
+            index index.html;
+            try_files $uri $uri/ /download-center/index.html;
+
+            # 静态资源缓存
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+            }
+   }
+# ===== 下载中心静态资源 =====
+location /download-center/assets/ {
+    alias /var/www/html/media-download/assets/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+
+location /download-center/config/ {
+    alias /var/www/html/media-download/config/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+    # ===== 直播前端 =====
+    location /live-center {
+        alias /var/www//html/live-center;  # 假设直播前端路径
+        index index.html;
+        try_files $uri $uri/ /live-center/index.html;
+
+        # 静态资源缓存
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+
 ## 环境配置与URL管理
 
 ### 配置文件结构
@@ -153,6 +222,10 @@ export const FRONTEND_USER_URL = getEnv('VITE_FRONTEND_USER_URL') ||
 export const CALLBACK_PATH = getEnv('VITE_CALLBACK_PATH') || '/simple-callback.html';
 export const AUTH_CALLBACK_PATH = getEnv('VITE_AUTH_CALLBACK_PATH') || '/auth/callback';
 
+
+export const APP_BASE_PATH = getEnv('VITE_APP_BASE_PATH') || '';
+
+
 // 其他配置常量
 export const APP_TITLE = getEnv('VITE_APP_TITLE') || '媒体下载服务';
 export const API_TIMEOUT = parseInt(getEnv('VITE_API_TIMEOUT')) || 30000;
@@ -187,15 +260,17 @@ VITE_BASE_API_URL: 'http://localhost:8001/'
 VITE_LOGIN_URL: 'http://localhost:5173/pages/auth/login'
 
 VITE_FRONTEND_USER_URL: 'http://localhost:5173'
-
+VITE_APP_BASE_PATH: '',
 ```
 
 #### 生产部署环境
 ```bash
 # 修改 config/env.js 为实际的生产环境地址
-VITE_BASE_API_URL: 'http://124.220.235.226:8001/'
+VITE_BASE_API_URL: 'http://124.220.235.226/api/dl/'
 VITE_LOGIN_URL: 'http://124.220.235.226:5173/pages/auth/login'
-VITE_FRONTEND_USER_URL: 'http://124.220.235.226:5173'
+VITE_FRONTEND_USER_URL: 'http://124.220.235.226/'
+
+VITE_APP_BASE_PATH: '/download-center/',
 ```
 
 #### Docker部署
@@ -457,6 +532,31 @@ interface ApiResponse<T> {
 - 状态管理：维护 processing/success/error 三种状态
 - 错误处理：Token无效或设置失败时的错误处理
 
+**实现代码**
+``javascript
+// 处理从用户管理前端跳转过来的token
+onMounted(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  
+  if (token) {
+    // 保存token到localStorage
+    localStorage.setItem('jwt_token', token);
+    
+    // 更新认证状态
+    const authStore = useAuthStore();
+    authStore.setToken(token);
+    
+    // 跳转到首页或原始页面
+    const redirectPath = localStorage.getItem('auth_redirect_path') || '/';
+    router.push(redirectPath);
+  } else {
+    // 没有token，跳转到登录页面
+    router.push('/login');
+  }
+});
+```
+
 **UI组件要求：**
 - 使用 `el-loading` 组件显示加载状态
 - 状态文本动态显示：处理中、成功、错误状态的不同提示
@@ -472,7 +572,7 @@ interface ApiResponse<T> {
 ## 四、界面设计与路由规划
 ### 4.1. 路由规划
 - `/login` : 用户登录页面 (重定向自用户服务)
-- `/auth/callback` : 认证回调处理页面（处理来自用户服务的登录回调）
+- `/auth/callback` : 认证回调处理页面（处理来自用户服务的SSO登录回调）
 - /download-center : 下载中心主页 (包含左侧导航菜单和右侧内容区域)
   - /download-center/tasks : 下载任务列表页 (嵌套在下载中心内)
   - /download-center/tasks/create : 创建下载任务页 (嵌套在下载中心内)
@@ -480,7 +580,7 @@ interface ApiResponse<T> {
   - /download-center/tasks/:taskId/failures : 下载失败记录列表页 (嵌套在下载中心内)
   - /download-center/tasks/:taskId/videos : 单任务下已下载视频列表页 (嵌套在下载中心内)
 
-> **注意：已删除"全局已下载视频列表页"和"全局已下载视频详情页"相关路由。**
+**注意：已删除"全局已下载视频列表页"和"全局已下载视频详情页"相关路由。**
 
 ### 4.2. 路由守卫配置
 
@@ -499,7 +599,8 @@ const protectedRoutes = [
 
 ```typescript
 // 路由守卫增强版本
-import { LOGIN_URL } from '@/constants/api';
+import { LOGIN_URL, APP_BASE_PATH } from '@/constants/api';
+
 
 router.beforeEach(async (to, from, next) => {
   console.log(`路由导航: ${from.path} -> ${to.path}`);
@@ -526,13 +627,14 @@ router.beforeEach(async (to, from, next) => {
       // 保存原始路径到localStorage
       localStorage.setItem('auth_redirect_path', to.fullPath);
       
-      // 使用简化参数避免URL编码问题
-      const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
+      // 构建登录URL，包含外部应用参数
+      // 构建登录URL，包含外部应用参数
+      const currentDomain = window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+      const loginUrl = `${LOGIN_URL}?external_callback=true&origin=${currentDomain}&app_path=${APP_BASE_PATH}`;
+      
       
       console.log('跳转登录，原始路径:', to.fullPath);
-      console.log('回调域名:', originDomain);
-      window.location.href = loginUrlWithCallback;
+      window.location.href = loginUrl;
       return;
     }
     
@@ -545,9 +647,11 @@ router.beforeEach(async (to, from, next) => {
       // 保存原始路径到localStorage
       localStorage.setItem('auth_redirect_path', to.fullPath);
       
-      // 使用简化参数避免URL编码问题
-      const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
+    // 构建登录URL，包含外部应用参数
+      const currentDomain = window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+      const loginUrl = `${LOGIN_URL}?external_callback=true&origin=${currentDomain}&app_path=${APP_BASE_PATH}`;
+      
+      
       
       console.log('Token过期，跳转登录，原始路径:', to.fullPath);
       console.log('回调域名:', originDomain);
@@ -945,10 +1049,11 @@ actions: {
     this.clearAuth();
     this.setRedirectPath(targetPath);
     
-    import('@/constants/api').then(({ LOGIN_URL }) => {
-      const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
-      window.location.href = loginUrlWithCallback;
+     import('@/constants/api').then(({ LOGIN_URL, APP_BASE_PATH }) => {
+      const currentDomain = window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+      const loginUrl = `${LOGIN_URL}?external_callback=true&origin=${currentDomain}&app_path=${APP_BASE_PATH}`;
+      
+      window.location.href = loginUrl;
     });
   },
   
@@ -1058,7 +1163,8 @@ request.interceptors.response.use(
       
       // 跳转到外部登录页面
       const originDomain = window.location.origin.replace('http://', '').replace('https://', '');
-      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}`;
+      const loginUrlWithCallback = `${LOGIN_URL}?external_callback=true&origin=${originDomain}&app_path=${APP_BASE_PATH}`;
+      
       
       console.log('API认证失败，跳转登录');
       window.location.href = loginUrlWithCallback;

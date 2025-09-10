@@ -15,6 +15,7 @@
 
     VITE_FRONTEND_USER_URL: 'http://localhost:5173',
 
+    VITE_APP_BASE_PATH: '',
     // ===== 其他配置 =====
     VITE_APP_TITLE: '媒体下载服务',
     VITE_API_TIMEOUT: '30000',
